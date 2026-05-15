@@ -5,6 +5,7 @@ These functions are used both as standalone helpers and wrapped as Claude tools.
 import httpx
 from datetime import datetime, timedelta
 from typing import Optional
+from urllib.parse import urlencode
 from app.core.config import settings
 
 STRAVA_BASE = "https://www.strava.com/api/v3"
@@ -13,15 +14,16 @@ STRAVA_AUTH = "https://www.strava.com/oauth"
 
 # ── OAuth ──────────────────────────────────────────────────────────────────────
 
-def get_auth_url() -> str:
+def get_auth_url(redirect_uri: Optional[str] = None) -> str:
     scope = "activity:read_all"
-    return (
-        f"{STRAVA_AUTH}/authorize"
-        f"?client_id={settings.strava_client_id}"
-        f"&redirect_uri={settings.frontend_url}/auth/callback"
-        f"&response_type=code"
-        f"&scope={scope}"
-    )
+    callback_url = redirect_uri or f"{settings.frontend_url}/auth/callback"
+    params = urlencode({
+        "client_id": settings.strava_client_id,
+        "redirect_uri": callback_url,
+        "response_type": "code",
+        "scope": scope,
+    })
+    return f"{STRAVA_AUTH}/authorize?{params}"
 
 
 async def exchange_code(code: str) -> dict:

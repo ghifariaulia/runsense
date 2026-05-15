@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from app.tools.strava import get_auth_url, exchange_code, refresh_token
 
@@ -14,8 +14,8 @@ class RefreshRequest(BaseModel):
 
 
 @router.get("/strava/url")
-def strava_auth_url():
-    return {"url": get_auth_url()}
+def strava_auth_url(redirect_uri: str | None = Query(default=None)):
+    return {"url": get_auth_url(redirect_uri)}
 
 
 @router.post("/strava/callback")

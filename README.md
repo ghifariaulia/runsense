@@ -37,7 +37,10 @@ Data-backed insight with specific numbers
 Astro + React chat UI (streaming-ready)
 ```
 
-**Stack:** FastAPI · Anthropic Claude API (tool use) · Strava API · Strava HR data API · Astro · React · Docker
+**Stack:** FastAPI · Anthropic Claude API (tool use) · Strava API · Strava HR data API · Astro · React · Flutter · Docker
+
+The `mobile/` directory contains a Flutter client that uses the same FastAPI backend,
+Strava OAuth flow, dashboard data endpoints, and coach chat endpoint as the web app.
 
 ## Setup
 
@@ -94,6 +97,8 @@ frontend/
 │       ├── index.astro               # ← Landing + Strava OAuth
 │       ├── coach.astro               # ← Main chat page
 │       └── auth/callback.astro       # ← OAuth callback handler
+mobile/
+└── lib/main.dart                      # ← Flutter mobile client
 ```
 
 ## Starter questions
