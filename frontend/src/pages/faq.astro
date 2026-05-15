@@ -1,0 +1,157 @@
+---
+const terms = [
+  {
+    title: 'Pace per heartbeat',
+    body: 'Run pace divided by average heart rate. Lower is usually better: you are covering the same distance with fewer heartbeats, or moving faster at similar effort. Compare it week to week, not activity to activity.',
+  },
+  {
+    title: 'CTL',
+    body: 'Chronic Training Load. A 42-day estimate of fitness from heart-rate-based training stress. Rising CTL means your long-term load is building. Falling CTL means your recent training load is lower than before.',
+  },
+  {
+    title: 'ATL',
+    body: 'Acute Training Load. A 7-day estimate of short-term fatigue. ATL jumps quickly after hard or long activities and drops quickly when you rest.',
+  },
+  {
+    title: 'TSB',
+    body: 'Training Stress Balance. CTL minus ATL. Positive means fresher. Negative means carrying fatigue. Deep negative values can be normal in a hard block, but risky if they stay there too long.',
+  },
+  {
+    title: 'TSS',
+    body: 'Training Stress Score approximation. RunSense estimates it from activity duration and average heart rate. It is useful for trends, not a lab-grade truth.',
+  },
+  {
+    title: 'Avg run pace',
+    body: 'Average pace is calculated only from Run, TrailRun, and VirtualRun activities. Other activity types still appear in the log and distance totals.',
+  },
+];
+
+const graphNotes = [
+  {
+    title: 'Fitness and fatigue graph',
+    body: 'White line is CTL, vermillion line is ATL, grey line is TSB. If ATL is far above CTL, fatigue is high. If CTL trends up while TSB does not stay deeply negative, training is building well.',
+  },
+  {
+    title: 'Pace per heartbeat graph',
+    body: 'Lower values usually indicate better aerobic efficiency. If the line rises while pace feels hard, fatigue, heat, terrain, or poor recovery may be affecting you.',
+  },
+  {
+    title: 'Recent activity distance',
+    body: 'Bars show the latest activities by distance. Use this to quickly spot sudden volume jumps or unusually short recovery activities.',
+  },
+  {
+    title: 'Activity log',
+    body: 'Use the activity type filter to isolate runs, rides, walks, or other sports. Pagination keeps the list readable while backend loading still pulls all available Strava pages.',
+  },
+];
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RunSense FAQ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --background: #0A0A0A;
+      --foreground: #FAFAFA;
+      --muted: #1A1A1A;
+      --muted-foreground: #737373;
+      --accent: #FF3D00;
+      --border: #262626;
+      --ring: #FF3D00;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: var(--background); }
+    body {
+      font-family: "Inter Tight", Inter, system-ui, sans-serif;
+      background: var(--background);
+      color: var(--foreground);
+      min-height: 100vh;
+      letter-spacing: -0.01em;
+    }
+    body::before {
+      content: "READ";
+      position: fixed;
+      right: -1rem;
+      bottom: -2rem;
+      color: rgba(250,250,250,.035);
+      font-size: clamp(8rem, 28vw, 24rem);
+      font-weight: 900;
+      line-height: .8;
+      letter-spacing: -0.06em;
+      pointer-events: none;
+    }
+    a { color: inherit; }
+    :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+    main { position: relative; z-index: 1; padding: 3rem clamp(1.5rem, 4vw, 4rem); }
+    .topbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2rem; align-items: start; padding-bottom: 2rem; border-bottom: 1px solid var(--border); }
+    .eyebrow { color: var(--accent); font-family: "JetBrains Mono", monospace; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .18em; margin-bottom: .75rem; }
+    h1 { max-width: 1100px; font-size: clamp(4rem, 11vw, 11rem); line-height: .82; letter-spacing: -0.06em; text-transform: uppercase; }
+    .subhead { color: var(--muted-foreground); max-width: 46rem; font-size: clamp(1rem, 1.6vw, 1.25rem); line-height: 1.5; margin-top: 1.25rem; }
+    .ghost-link { color: var(--muted-foreground); text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 8px; text-transform: uppercase; letter-spacing: .12em; font-family: "JetBrains Mono", monospace; font-size: .75rem; font-weight: 700; padding: .75rem 0; }
+    .ghost-link:hover { color: var(--foreground); }
+    section { padding: clamp(3rem, 7vw, 6rem) 0; border-bottom: 1px solid var(--border); }
+    .section-title { font-size: clamp(2.5rem, 6vw, 6rem); line-height: .9; letter-spacing: -0.06em; text-transform: uppercase; margin-bottom: 2rem; }
+    .faq-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--border); }
+    article { padding: 1.5rem 1.25rem 1.75rem 0; border-bottom: 1px solid var(--border); min-height: 190px; }
+    article:nth-child(odd) { border-right: 1px solid var(--border); padding-right: 1.5rem; }
+    article:nth-child(even) { padding-left: 1.5rem; }
+    h2 { font-size: clamp(1.7rem, 3vw, 3rem); line-height: .95; letter-spacing: -0.05em; text-transform: uppercase; margin-bottom: .9rem; }
+    p { color: var(--muted-foreground); font-size: 1rem; line-height: 1.65; max-width: 42rem; }
+    .callout { display: grid; grid-template-columns: 1fr minmax(260px, 360px); gap: 2rem; align-items: end; }
+    .callout strong { display: block; color: var(--accent); font-size: clamp(4rem, 12vw, 10rem); line-height: .78; letter-spacing: -0.06em; text-transform: uppercase; }
+    @media (max-width: 760px) {
+      main { padding: 1.25rem; }
+      .topbar, .callout { grid-template-columns: 1fr; }
+      .faq-grid { grid-template-columns: 1fr; }
+      article:nth-child(odd), article:nth-child(even) { border-right: 0; padding-left: 0; padding-right: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">RunSense manual</p>
+        <h1>Read the graphs</h1>
+        <p class="subhead">Short definitions for the terms on your dashboard, plus how to interpret the lines without overthinking every single point.</p>
+      </div>
+      <a href="/coach" class="ghost-link">Back to coach</a>
+    </header>
+
+    <section>
+      <h2 class="section-title">Terms</h2>
+      <div class="faq-grid">
+        {terms.map(term => (
+          <article>
+            <h2>{term.title}</h2>
+            <p>{term.body}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title">Graphs</h2>
+      <div class="faq-grid">
+        {graphNotes.map(note => (
+          <article>
+            <h2>{note.title}</h2>
+            <p>{note.body}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+
+    <section class="callout">
+      <strong>Rule</strong>
+      <p>Do not judge one workout in isolation. Look for two to four week patterns: fitness rising, fatigue manageable, and pace per heartbeat stable or improving.</p>
+    </section>
+  </main>
+</body>
+</html>
