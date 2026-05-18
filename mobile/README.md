@@ -6,7 +6,7 @@ Flutter client for the existing RunSense FastAPI backend.
 
 - Strava OAuth with `runsense://auth/callback` deep link
 - Secure token storage
-- Training dashboard with CTL/ATL/TSB, pace/HR efficiency, activity filters, and activity history
+- Training dashboard with CTL/ATL/TSB, meters-per-heartbeat running efficiency, activity filters, and activity history
 - Coach chat using the same `/api/chat` agent endpoint and starter questions as the web app
 
 ## Run

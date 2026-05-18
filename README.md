@@ -10,7 +10,7 @@ Most "AI fitness apps" wrap generic advice in a chat UI. RunSense is different:
 
 - **Real tool use** — Claude calls Strava + Strava HR data APIs as actual tools, deciding what to fetch based on your question
 - **Multi-turn agentic reasoning** — the agent can call multiple tools in sequence before answering
-- **Honest, specific insights** — cites actual numbers: "Your pace/HR efficiency dropped 8% over 3 weeks"
+- **Honest, specific insights** — cites actual numbers: "Your running efficiency dropped 8% over 3 weeks"
 - **Real fitness science** — CTL/ATL/TSB from Strava HR data, not just step counts
 
 ## Architecture
@@ -26,7 +26,7 @@ Claude Agent (claude-sonnet-4) ── decides which tools to call
      │
      ├── get_recent_activities()   → Strava API (last N runs)
      ├── get_fitness_metrics()     → Strava HR data (CTL/ATL/TSB/HRV)
-     ├── get_pace_hr_trend()       → Strava (weekly efficiency trend)
+     ├── get_pace_hr_trend()       → Strava (weekly meters-per-heartbeat trend)
      ├── get_personal_records()    → Strava (YTD stats, PRs)
      └── get_hrv_trend()           → Strava HR data (HRV/RHR trend)
      │
@@ -114,7 +114,7 @@ mobile/
 
 - Add a `/stats` page with Recharts visualizations (pace trend, fitness curve)
 - Add training plan generation based on current CTL
-- Add race predictor using recent pace/HR efficiency
+- Add race predictor using recent running efficiency
 - Add Telegram/WhatsApp bot interface (you already know n8n)
 
 ## Built with

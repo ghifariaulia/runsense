@@ -26,6 +26,23 @@ function paceLabel(value: number | null | undefined) {
   return `${minutes}:${seconds}/km`;
 }
 
+function speedLabel(activity: Activity) {
+  if (!activity.duration_min) return '--';
+  return `${((activity.distance_km / activity.duration_min) * 60).toFixed(1)} km/h`;
+}
+
+function isCyclingActivity(activity: Activity) {
+  return ['Ride', 'VirtualRide', 'MountainBikeRide', 'GravelRide', 'EBikeRide', 'EMountainBikeRide'].includes(activity.type);
+}
+
+function activityPaceOrSpeedLabel(activity: Activity) {
+  return isCyclingActivity(activity) ? speedLabel(activity) : paceLabel(activity.pace_min_km);
+}
+
+function activityPaceOrSpeedTitle(activity: Activity) {
+  return isCyclingActivity(activity) ? 'Speed' : 'Pace';
+}
+
 function shortDate(value: string) {
   return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
@@ -150,6 +167,15 @@ function StatTile({ label, value, detail }: { label: string; value: string; deta
   );
 }
 
+function ActivityDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
 export default function FitnessTracker() {
   const [state, setState] = useState<LoadState>('loading');
   const [error, setError] = useState('');
@@ -158,6 +184,7 @@ export default function FitnessTracker() {
   const [trend, setTrend] = useState<PaceHrTrend[]>([]);
   const [activityType, setActivityType] = useState('All');
   const [activityPage, setActivityPage] = useState(1);
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
 
   const accessToken = typeof localStorage === 'undefined' ? '' : localStorage.getItem('strava_access_token') || '';
   const athleteName = typeof localStorage === 'undefined' ? 'Runner' : localStorage.getItem('strava_athlete_name') || 'Runner';
@@ -251,7 +278,7 @@ export default function FitnessTracker() {
           <p className="eyebrow">RunSense</p>
           <h1>{athleteName.split(' ')[0]}'s training index</h1>
           <p className="hero-subhead">
-            Fitness, fatigue, pace efficiency, and activity history from Strava. Built for quick reads before planning the next block.
+            Fitness, fatigue, running efficiency, and activity history from Strava. Built for quick reads before planning the next block.
           </p>
         </div>
         <div className="top-actions">
@@ -306,14 +333,14 @@ export default function FitnessTracker() {
           <article className="panel">
             <div className="panel-head">
               <div>
-                <h2>Pace per heartbeat</h2>
-                <p>Weekly run pace divided by average heart rate. Lower usually means you are moving faster for each heartbeat.</p>
+                <h2>Running efficiency</h2>
+                <p>Meters covered per heartbeat each week. Higher usually means you are moving farther for the same cardiovascular cost.</p>
               </div>
             </div>
             <LineChart
               height={170}
               labels={trend.map(item => shortWeek(item.week))}
-              series={[{ key: 'efficiency', label: 'Efficiency', color: '#FF3D00', values: trend.map(item => item.efficiency) }]}
+              series={[{ key: 'efficiency', label: 'Meters per beat', color: '#FF3D00', values: trend.map(item => item.efficiency) }]}
             />
           </article>
 
@@ -370,15 +397,21 @@ export default function FitnessTracker() {
             </div>
             <div className="run-list">
               {visibleActivities.map(activity => (
-                <div className="run-row" key={activity.id}>
+                <button
+                  className="run-row"
+                  key={activity.id}
+                  type="button"
+                  onClick={() => setSelectedActivity(activity)}
+                  aria-label={`View details for ${activity.name}`}
+                >
                   <div>
                     <strong>{activity.name}</strong>
                     <span>{shortDate(activity.date)} · {activity.type} · {activity.elevation_m ?? 0} m gain</span>
                   </div>
                   <div>{activity.distance_km} km</div>
-                  <div>{paceLabel(activity.pace_min_km)}</div>
+                  <div>{activityPaceOrSpeedLabel(activity)}</div>
                   <div>{activity.avg_hr ? `${Math.round(activity.avg_hr)} bpm` : '--'}</div>
-                </div>
+                </button>
               ))}
             </div>
           </article>
@@ -392,6 +425,25 @@ export default function FitnessTracker() {
           <ChatInterface accessToken={accessToken} athleteName={athleteName} />
         </aside>
       </section>
+
+      {selectedActivity && (
+        <div className="activity-modal" role="dialog" aria-modal="true" aria-labelledby="activity-title" onClick={() => setSelectedActivity(null)}>
+          <div className="activity-card" onClick={event => event.stopPropagation()}>
+            <button type="button" className="activity-close" onClick={() => setSelectedActivity(null)} aria-label="Close activity details">×</button>
+            <p className="section-kicker">{selectedActivity.type}</p>
+            <h2 id="activity-title">{selectedActivity.name}</h2>
+            <p className="activity-date">{shortDate(selectedActivity.date)} · {selectedActivity.date}</p>
+            <div className="activity-detail-grid">
+              <ActivityDetail label="Distance" value={`${selectedActivity.distance_km} km`} />
+              <ActivityDetail label="Duration" value={`${selectedActivity.duration_min} min`} />
+              <ActivityDetail label={activityPaceOrSpeedTitle(selectedActivity)} value={activityPaceOrSpeedLabel(selectedActivity)} />
+              <ActivityDetail label="Avg HR" value={selectedActivity.avg_hr ? `${Math.round(selectedActivity.avg_hr)} bpm` : '--'} />
+              <ActivityDetail label="Max HR" value={selectedActivity.max_hr ? `${Math.round(selectedActivity.max_hr)} bpm` : '--'} />
+              <ActivityDetail label="Elevation" value={`${selectedActivity.elevation_m ?? 0} m`} />
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

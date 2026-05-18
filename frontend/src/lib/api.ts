@@ -71,6 +71,7 @@ export interface PaceHrTrend {
   avg_pace_min_km: number;
   avg_hr: number;
   efficiency: number;
+  efficiency_unit?: string;
   run_count: number;
 }
 

@@ -119,8 +119,8 @@ async def get_personal_records(access_token: str) -> dict:
 
 async def get_pace_hr_trend(access_token: str, weeks: int = 8) -> list[dict]:
     """
-    Calculate weekly pace/HR efficiency trend.
-    Efficiency = pace (min/km) / avg_hr — lower is better (faster at lower HR).
+    Calculate weekly running efficiency trend.
+    Efficiency = meters per heartbeat — higher is better.
     """
     activities = await get_recent_activities(access_token, weeks=weeks)
 
@@ -130,10 +130,11 @@ async def get_pace_hr_trend(access_token: str, weeks: int = 8) -> list[dict]:
     for activity in activities:
         week = datetime.strptime(activity["date"], "%Y-%m-%d").strftime("%Y-W%W")
         if activity["avg_hr"] and activity["pace_min_km"]:
+            meters_per_beat = 1000 / (activity["pace_min_km"] * activity["avg_hr"])
             weekly[week].append({
                 "pace": activity["pace_min_km"],
                 "hr": activity["avg_hr"],
-                "efficiency": round(activity["pace_min_km"] / activity["avg_hr"], 4),
+                "efficiency": round(meters_per_beat, 2),
             })
 
     trend = []
@@ -141,12 +142,13 @@ async def get_pace_hr_trend(access_token: str, weeks: int = 8) -> list[dict]:
         entries = weekly[week]
         avg_pace = round(sum(e["pace"] for e in entries) / len(entries), 2)
         avg_hr = round(sum(e["hr"] for e in entries) / len(entries), 1)
-        avg_eff = round(sum(e["efficiency"] for e in entries) / len(entries), 4)
+        avg_eff = round(sum(e["efficiency"] for e in entries) / len(entries), 2)
         trend.append({
             "week": week,
             "avg_pace_min_km": avg_pace,
             "avg_hr": avg_hr,
             "efficiency": avg_eff,
+            "efficiency_unit": "m/beat",
             "run_count": len(entries),
         })
     return trend

@@ -86,7 +86,9 @@ class ApiClient {
   String _errorMessage(http.Response response) {
     try {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      return data['detail']?.toString() ?? response.reasonPhrase ?? 'Request failed';
+      return data['detail']?.toString() ??
+          response.reasonPhrase ??
+          'Request failed';
     } catch (_) {
       return response.reasonPhrase ?? 'Request failed';
     }
@@ -141,7 +143,9 @@ class ApiClient {
       query: {'weeks': '0'},
       body: {'access_token': accessToken},
     );
-    return data.map((item) => Activity.fromJson(item as Map<String, dynamic>)).toList();
+    return data
+        .map((item) => Activity.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   Future<FitnessMetrics> fitness(String accessToken) async {
@@ -161,7 +165,9 @@ class ApiClient {
       query: {'weeks': '8'},
       body: {'access_token': accessToken},
     );
-    return data.map((item) => PaceHrTrend.fromJson(item as Map<String, dynamic>)).toList();
+    return data
+        .map((item) => PaceHrTrend.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 }
 
@@ -181,15 +187,19 @@ class TokenStore {
     return AuthTokens(
       accessToken: accessToken,
       refreshToken: await _storage.read(key: 'strava_refresh_token') ?? '',
-      expiresAt: int.tryParse(await _storage.read(key: 'strava_expires_at') ?? '') ?? 0,
+      expiresAt:
+          int.tryParse(await _storage.read(key: 'strava_expires_at') ?? '') ??
+              0,
       athleteName: await _storage.read(key: 'strava_athlete_name') ?? 'Runner',
     );
   }
 
   Future<void> write(AuthTokens tokens) async {
     await _storage.write(key: 'strava_access_token', value: tokens.accessToken);
-    await _storage.write(key: 'strava_refresh_token', value: tokens.refreshToken);
-    await _storage.write(key: 'strava_expires_at', value: tokens.expiresAt.toString());
+    await _storage.write(
+        key: 'strava_refresh_token', value: tokens.refreshToken);
+    await _storage.write(
+        key: 'strava_expires_at', value: tokens.expiresAt.toString());
     await _storage.write(key: 'strava_athlete_name', value: tokens.athleteName);
   }
 
@@ -232,6 +242,7 @@ class Activity {
     required this.durationMin,
     required this.paceMinKm,
     required this.avgHr,
+    required this.maxHr,
     required this.elevationM,
     required this.type,
   });
@@ -243,6 +254,7 @@ class Activity {
   final double durationMin;
   final double? paceMinKm;
   final double? avgHr;
+  final double? maxHr;
   final double? elevationM;
   final String type;
 
@@ -254,6 +266,7 @@ class Activity {
         durationMin: (json['duration_min'] as num?)?.toDouble() ?? 0,
         paceMinKm: (json['pace_min_km'] as num?)?.toDouble(),
         avgHr: (json['avg_hr'] as num?)?.toDouble(),
+        maxHr: (json['max_hr'] as num?)?.toDouble(),
         elevationM: (json['elevation_m'] as num?)?.toDouble(),
         type: json['type']?.toString() ?? 'Activity',
       );
@@ -397,7 +410,8 @@ class _RootScreenState extends State<RootScreen> {
     });
     try {
       final url = await _api.getAuthUrl();
-      final launched = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      final launched =
+          await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
       if (!launched) throw ApiException('Could not open Strava authorization.');
       setState(() => _loading = false);
     } catch (error) {
@@ -450,20 +464,27 @@ class LoginScreen extends StatelessWidget {
               const Text.rich(
                 TextSpan(
                   text: 'Run',
-                  children: [TextSpan(text: 'Sense', style: TextStyle(color: AppColors.accent))],
+                  children: [
+                    TextSpan(
+                        text: 'Sense',
+                        style: TextStyle(color: AppColors.accent))
+                  ],
                 ),
-                style: TextStyle(fontSize: 84, height: .82, fontWeight: FontWeight.w900),
+                style: TextStyle(
+                    fontSize: 84, height: .82, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 24),
               const Text(
                 'An AI running coach powered by your Strava data. Honest, data-backed training insights.',
-                style: TextStyle(color: AppColors.muted, fontSize: 18, height: 1.45),
+                style: TextStyle(
+                    color: AppColors.muted, fontSize: 18, height: 1.45),
               ),
               const SizedBox(height: 32),
               TextButton(
                 onPressed: onConnect,
                 style: TextButton.styleFrom(foregroundColor: AppColors.accent),
-                child: const Text('CONNECT WITH STRAVA', style: TextStyle(fontWeight: FontWeight.w800)),
+                child: const Text('CONNECT WITH STRAVA',
+                    style: TextStyle(fontWeight: FontWeight.w800)),
               ),
               if (error != null) ...[
                 const SizedBox(height: 18),
@@ -487,7 +508,9 @@ class LoadingScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(width: 72, child: LinearProgressIndicator(color: AppColors.accent)),
+            const SizedBox(
+                width: 72,
+                child: LinearProgressIndicator(color: AppColors.accent)),
             const SizedBox(height: 18),
             Text(label, style: const TextStyle(color: AppColors.muted)),
           ],
@@ -498,7 +521,8 @@ class LoadingScreen extends StatelessWidget {
 }
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key, required this.tokens, required this.onReconnect});
+  const DashboardScreen(
+      {super.key, required this.tokens, required this.onReconnect});
 
   final AuthTokens tokens;
   final VoidCallback onReconnect;
@@ -538,29 +562,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
           return const LoadingScreen(label: 'Loading Strava dashboard...');
         }
         if (snapshot.hasError) {
-          return ErrorScreen(message: snapshot.error.toString(), onReconnect: widget.onReconnect);
+          return ErrorScreen(
+              message: snapshot.error.toString(),
+              onReconnect: widget.onReconnect);
         }
         final data = snapshot.data!;
-        final activityTypes = data.activities.map((a) => a.type).toSet().toList()..sort();
+        final activityTypes =
+            data.activities.map((a) => a.type).toSet().toList()..sort();
         final types = ['All', ...activityTypes];
-        final filtered = _type == 'All' ? data.activities : data.activities.where((a) => a.type == _type).toList();
+        final filtered = _type == 'All'
+            ? data.activities
+            : data.activities.where((a) => a.type == _type).toList();
         final fourWeekDistance = data.activities
-            .where((a) => DateTime.tryParse(a.date)?.isAfter(DateTime.now().subtract(const Duration(days: 28))) ?? false)
+            .where((a) =>
+                DateTime.tryParse(a.date)?.isAfter(
+                    DateTime.now().subtract(const Duration(days: 28))) ??
+                false)
             .fold<double>(0, (sum, activity) => sum + activity.distanceKm);
         final heroDistance = fourWeekDistance > 0
             ? fourWeekDistance
-            : data.activities.fold<double>(0, (sum, activity) => sum + activity.distanceKm);
-        final avgPace = average(nonNullDoubles(data.activities.where(isRun).map((a) => a.paceMinKm)));
-        final avgHr = average(nonNullDoubles(data.activities.map((a) => a.avgHr)));
+            : data.activities
+                .fold<double>(0, (sum, activity) => sum + activity.distanceKm);
+        final avgPace = average(nonNullDoubles(
+            data.activities.where(isRun).map((a) => a.paceMinKm)));
+        final avgHr =
+            average(nonNullDoubles(data.activities.map((a) => a.avgHr)));
 
         return DefaultTabController(
           length: 2,
           child: Scaffold(
             appBar: AppBar(
               backgroundColor: AppColors.background,
-              title: const Text('RunSense', style: TextStyle(fontWeight: FontWeight.w900)),
+              title: const Text('RunSense',
+                  style: TextStyle(fontWeight: FontWeight.w900)),
               actions: [
-                TextButton(onPressed: widget.onReconnect, child: const Text('Reconnect')),
+                TextButton(
+                    onPressed: widget.onReconnect,
+                    child: const Text('Reconnect')),
               ],
               bottom: const TabBar(
                 indicatorColor: AppColors.accent,
@@ -583,19 +621,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 10),
                       Text(
                         '${widget.tokens.athleteName.split(' ').first}\'s training index',
-                        style: const TextStyle(fontSize: 42, height: .9, fontWeight: FontWeight.w900),
+                        style: const TextStyle(
+                            fontSize: 42,
+                            height: .9,
+                            fontWeight: FontWeight.w900),
                       ),
                       const SizedBox(height: 22),
                       Text.rich(
                         TextSpan(
                           text: heroDistance.toStringAsFixed(1),
-                          children: const [TextSpan(text: 'KM', style: TextStyle(color: AppColors.accent))],
+                          children: const [
+                            TextSpan(
+                                text: 'KM',
+                                style: TextStyle(color: AppColors.accent))
+                          ],
                         ),
-                        style: const TextStyle(fontSize: 70, height: .9, fontWeight: FontWeight.w900),
+                        style: const TextStyle(
+                            fontSize: 70,
+                            height: .9,
+                            fontWeight: FontWeight.w900),
                       ),
                       const Text('LAST 4 WEEKS', style: KickerStyle.text),
                       const SizedBox(height: 18),
-                      Text(data.fitness.interpretation, style: const TextStyle(color: AppColors.muted, height: 1.45)),
+                      Text(data.fitness.interpretation,
+                          style: const TextStyle(
+                              color: AppColors.muted, height: 1.45)),
                       const SizedBox(height: 22),
                       GridView.count(
                         crossAxisCount: 2,
@@ -605,10 +655,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
                         children: [
-                          MetricTile(label: '4 week distance', value: '${heroDistance.toStringAsFixed(1)} km', detail: '${data.activities.length} loaded'),
-                          MetricTile(label: 'Current fitness', value: '${data.fitness.current.ctl.toStringAsFixed(1)} CTL', detail: '${data.fitness.ctlChange.toStringAsFixed(1)} over 4 weeks'),
-                          MetricTile(label: 'Fatigue balance', value: '${data.fitness.current.tsb.toStringAsFixed(1)} TSB', detail: data.fitness.current.tsb < -20 ? 'high fatigue' : 'manageable load'),
-                          MetricTile(label: 'Pace / HR', value: paceLabel(avgPace), detail: avgHr == null ? 'HR unavailable' : '${avgHr.round()} bpm average'),
+                          MetricTile(
+                              label: '4 week distance',
+                              value: '${heroDistance.toStringAsFixed(1)} km',
+                              detail: '${data.activities.length} loaded'),
+                          MetricTile(
+                              label: 'Current fitness',
+                              value:
+                                  '${data.fitness.current.ctl.toStringAsFixed(1)} CTL',
+                              detail:
+                                  '${data.fitness.ctlChange.toStringAsFixed(1)} over 4 weeks'),
+                          MetricTile(
+                              label: 'Fatigue balance',
+                              value:
+                                  '${data.fitness.current.tsb.toStringAsFixed(1)} TSB',
+                              detail: data.fitness.current.tsb < -20
+                                  ? 'high fatigue'
+                                  : 'manageable load'),
+                          MetricTile(
+                              label: 'Pace / HR',
+                              value: paceLabel(avgPace),
+                              detail: avgHr == null
+                                  ? 'HR unavailable'
+                                  : '${avgHr.round()} bpm average'),
                         ],
                       ),
                       const SizedBox(height: 22),
@@ -618,7 +687,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       const SizedBox(height: 14),
                       ChartPanel(
-                        title: 'Pace per heartbeat',
+                        title: 'Running efficiency (m/beat)',
                         chart: TrendChart(points: data.trend),
                       ),
                       const SizedBox(height: 18),
@@ -634,7 +703,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         }).toList(),
                       ),
                       const SizedBox(height: 12),
-                      ...filtered.take(40).map(ActivityRow.new),
+                      ...filtered.take(40).map((activity) => ActivityRow(
+                            activity,
+                            onTap: () => showActivityDetails(context, activity),
+                          )),
                     ],
                   ),
                 ),
@@ -649,14 +721,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
 class DashboardData {
-  DashboardData({required this.activities, required this.fitness, required this.trend});
+  DashboardData(
+      {required this.activities, required this.fitness, required this.trend});
   final List<Activity> activities;
   final FitnessMetrics fitness;
   final List<PaceHrTrend> trend;
 }
 
 class ErrorScreen extends StatelessWidget {
-  const ErrorScreen({super.key, required this.message, required this.onReconnect});
+  const ErrorScreen(
+      {super.key, required this.message, required this.onReconnect});
   final String message;
   final VoidCallback onReconnect;
   @override
@@ -668,11 +742,13 @@ class ErrorScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('RunSense', style: TextStyle(fontSize: 54, fontWeight: FontWeight.w900)),
+            const Text('RunSense',
+                style: TextStyle(fontSize: 54, fontWeight: FontWeight.w900)),
             const SizedBox(height: 16),
             Text(message, style: const TextStyle(color: AppColors.muted)),
             const SizedBox(height: 20),
-            TextButton(onPressed: onReconnect, child: const Text('Reconnect Strava')),
+            TextButton(
+                onPressed: onReconnect, child: const Text('Reconnect Strava')),
           ],
         ),
       ),
@@ -681,7 +757,11 @@ class ErrorScreen extends StatelessWidget {
 }
 
 class MetricTile extends StatelessWidget {
-  const MetricTile({super.key, required this.label, required this.value, required this.detail});
+  const MetricTile(
+      {super.key,
+      required this.label,
+      required this.value,
+      required this.detail});
   final String label;
   final String value;
   final String detail;
@@ -694,9 +774,13 @@ class MetricTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label.toUpperCase(), style: KickerStyle.text.copyWith(fontSize: 10)),
-          Text(value, style: const TextStyle(fontSize: 24, height: .95, fontWeight: FontWeight.w900)),
-          Text(detail, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+          Text(label.toUpperCase(),
+              style: KickerStyle.text.copyWith(fontSize: 10)),
+          Text(value,
+              style: const TextStyle(
+                  fontSize: 24, height: .95, fontWeight: FontWeight.w900)),
+          Text(detail,
+              style: const TextStyle(color: AppColors.muted, fontSize: 12)),
         ],
       ),
     );
@@ -716,7 +800,9 @@ class ChartPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+          Text(title,
+              style:
+                  const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
           const SizedBox(height: 12),
           Expanded(child: chart),
         ],
@@ -755,7 +841,9 @@ class TrendChart extends StatelessWidget {
         gridData: const FlGridData(show: true, drawVerticalLine: false),
         titlesData: const FlTitlesData(show: false),
         borderData: FlBorderData(show: false),
-        lineBarsData: [line(points.map((p) => p.efficiency).toList(), AppColors.accent)],
+        lineBarsData: [
+          line(points.map((p) => p.efficiency).toList(), AppColors.accent)
+        ],
       ),
     );
   }
@@ -764,7 +852,9 @@ class TrendChart extends StatelessWidget {
 LineChartBarData line(List<double> values, Color color) {
   final safeValues = values.isEmpty ? [0.0] : values;
   return LineChartBarData(
-    spots: safeValues.indexed.map((entry) => FlSpot(entry.$1.toDouble(), entry.$2)).toList(),
+    spots: safeValues.indexed
+        .map((entry) => FlSpot(entry.$1.toDouble(), entry.$2))
+        .toList(),
     color: color,
     barWidth: 3,
     dotData: const FlDotData(show: false),
@@ -772,28 +862,130 @@ LineChartBarData line(List<double> values, Color color) {
 }
 
 class ActivityRow extends StatelessWidget {
-  const ActivityRow(this.activity, {super.key});
+  const ActivityRow(this.activity, {super.key, required this.onTap});
   final Activity activity;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: AppColors.border))),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(activity.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 4),
+                  Text(
+                      '${shortDate(activity.date)} - ${activity.type} - ${(activity.elevationM ?? 0).round()} m gain',
+                      style: const TextStyle(
+                          color: AppColors.muted, fontSize: 12)),
+                ],
+              ),
+            ),
+            Text('${activity.distanceKm.toStringAsFixed(1)} km',
+                style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(width: 12),
+            Text(activityPaceOrSpeedLabel(activity),
+                style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, size: 18, color: AppColors.muted),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+void showActivityDetails(BuildContext context, Activity activity) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: AppColors.background,
+    showDragHandle: true,
+    builder: (context) {
+      return SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(activity.type.toUpperCase(), style: KickerStyle.text),
+              const SizedBox(height: 8),
+              Text(activity.name,
+                  style: const TextStyle(
+                      fontSize: 32, height: .95, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 6),
+              Text('${shortDate(activity.date)} - ${activity.date}',
+                  style: const TextStyle(color: AppColors.muted)),
+              const SizedBox(height: 18),
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                childAspectRatio: 1.8,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                children: [
+                  DetailTile(
+                      label: 'Distance',
+                      value: '${activity.distanceKm.toStringAsFixed(2)} km'),
+                  DetailTile(
+                      label: 'Duration',
+                      value: '${activity.durationMin.toStringAsFixed(1)} min'),
+                  DetailTile(
+                    label: activityPaceOrSpeedTitle(activity),
+                    value: activityPaceOrSpeedLabel(activity),
+                  ),
+                  DetailTile(
+                      label: 'Avg HR',
+                      value: activity.avgHr == null
+                          ? '--'
+                          : '${activity.avgHr!.round()} bpm'),
+                  DetailTile(
+                      label: 'Max HR',
+                      value: activity.maxHr == null
+                          ? '--'
+                          : '${activity.maxHr!.round()} bpm'),
+                  DetailTile(
+                      label: 'Elevation',
+                      value: '${(activity.elevationM ?? 0).round()} m'),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class DetailTile extends StatelessWidget {
+  const DetailTile({super.key, required this.label, required this.value});
+  final String label;
+  final String value;
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
-      child: Row(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(border: Border.all(color: AppColors.border)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(activity.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 4),
-                Text('${shortDate(activity.date)} - ${activity.type} - ${(activity.elevationM ?? 0).round()} m gain', style: const TextStyle(color: AppColors.muted, fontSize: 12)),
-              ],
-            ),
-          ),
-          Text('${activity.distanceKm.toStringAsFixed(1)} km', style: const TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(width: 12),
-          Text(paceLabel(activity.paceMinKm), style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+          Text(label.toUpperCase(),
+              style: KickerStyle.text.copyWith(fontSize: 10)),
+          Text(value,
+              style:
+                  const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
         ],
       ),
     );
@@ -826,7 +1018,11 @@ class _CoachScreenState extends State<CoachScreen> {
     final trimmed = text.trim();
     if (trimmed.isEmpty || _loading) return;
     setState(() {
-      _messages = [..._messages, ChatMessage.user(trimmed), ChatMessage.loading()];
+      _messages = [
+        ..._messages,
+        ChatMessage.user(trimmed),
+        ChatMessage.loading()
+      ];
       _loading = true;
       _controller.clear();
     });
@@ -838,11 +1034,18 @@ class _CoachScreenState extends State<CoachScreen> {
       );
       setState(() {
         _history = result.history;
-        _messages = [..._messages.take(_messages.length - 1), ChatMessage.assistant(result.response)];
+        _messages = [
+          ..._messages.take(_messages.length - 1),
+          ChatMessage.assistant(result.response)
+        ];
       });
     } catch (_) {
       setState(() {
-        _messages = [..._messages.take(_messages.length - 1), ChatMessage.assistant('Something went wrong. Check your connection and try again.')];
+        _messages = [
+          ..._messages.take(_messages.length - 1),
+          ChatMessage.assistant(
+              'Something went wrong. Check your connection and try again.')
+        ];
       });
     } finally {
       setState(() => _loading = false);
@@ -870,11 +1073,17 @@ class _CoachScreenState extends State<CoachScreen> {
               if (_messages.isEmpty) ...[
                 const Text('DATA COACH', style: KickerStyle.text),
                 const SizedBox(height: 10),
-                Text('Ask the hard question, ${widget.tokens.athleteName.split(' ').first}.', style: const TextStyle(fontSize: 36, height: .9, fontWeight: FontWeight.w900)),
+                Text(
+                    'Ask the hard question, ${widget.tokens.athleteName.split(' ').first}.',
+                    style: const TextStyle(
+                        fontSize: 36, height: .9, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 14),
-                const Text('Ask anything about your training. RunSense pulls real data before answering.', style: TextStyle(color: AppColors.muted, height: 1.45)),
+                const Text(
+                    'Ask anything about your training. RunSense pulls real data before answering.',
+                    style: TextStyle(color: AppColors.muted, height: 1.45)),
                 const SizedBox(height: 16),
-                ..._starters.map((starter) => StarterButton(label: starter, onTap: () => _submit(starter))),
+                ..._starters.map((starter) => StarterButton(
+                    label: starter, onTap: () => _submit(starter))),
               ],
               ..._messages.map(MessageBubble.new),
             ],
@@ -894,7 +1103,8 @@ class _CoachScreenState extends State<CoachScreen> {
                       hintText: 'Ask about your training...',
                       filled: true,
                       fillColor: AppColors.surface,
-                      border: OutlineInputBorder(borderSide: BorderSide(color: AppColors.border)),
+                      border: OutlineInputBorder(
+                          borderSide: BorderSide(color: AppColors.border)),
                     ),
                     onSubmitted: _submit,
                   ),
@@ -902,7 +1112,11 @@ class _CoachScreenState extends State<CoachScreen> {
                 const SizedBox(width: 10),
                 IconButton.filled(
                   onPressed: _loading ? null : () => _submit(_controller.text),
-                  icon: _loading ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.arrow_upward),
+                  icon: _loading
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.arrow_upward),
                 ),
               ],
             ),
@@ -923,8 +1137,11 @@ class StarterButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
-        child: Text(label.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.foreground)),
+        decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: AppColors.border))),
+        child: Text(label.toUpperCase(),
+            style: const TextStyle(
+                fontWeight: FontWeight.w800, color: AppColors.foreground)),
       ),
     );
   }
@@ -949,19 +1166,23 @@ class MessageBubble extends StatelessWidget {
           margin: const EdgeInsets.symmetric(vertical: 8),
           padding: const EdgeInsets.all(12),
           color: AppColors.accent,
-          child: Text(message.text, style: const TextStyle(color: AppColors.background, fontWeight: FontWeight.w800)),
+          child: Text(message.text,
+              style: const TextStyle(
+                  color: AppColors.background, fontWeight: FontWeight.w800)),
         ),
       );
     }
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 10),
       padding: const EdgeInsets.only(left: 14),
-      decoration: const BoxDecoration(border: Border(left: BorderSide(color: AppColors.accent, width: 3))),
+      decoration: const BoxDecoration(
+          border: Border(left: BorderSide(color: AppColors.accent, width: 3))),
       child: MarkdownBody(
         data: message.text,
         styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
           p: const TextStyle(height: 1.55, color: AppColors.foreground),
-          strong: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w900),
+          strong: const TextStyle(
+              color: AppColors.accent, fontWeight: FontWeight.w900),
         ),
       ),
     );
@@ -997,7 +1218,20 @@ class KickerStyle {
 }
 
 bool isRun(Activity activity) {
-  return activity.type == 'Run' || activity.type == 'TrailRun' || activity.type == 'VirtualRun';
+  return activity.type == 'Run' ||
+      activity.type == 'TrailRun' ||
+      activity.type == 'VirtualRun';
+}
+
+bool isCycling(Activity activity) {
+  return {
+    'Ride',
+    'VirtualRide',
+    'MountainBikeRide',
+    'GravelRide',
+    'EBikeRide',
+    'EMountainBikeRide',
+  }.contains(activity.type);
 }
 
 double? average(Iterable<double> values) {
@@ -1013,7 +1247,24 @@ String paceLabel(double? value) {
   return '$minutes:$seconds/km';
 }
 
-Iterable<double> nonNullDoubles(Iterable<double?> values) => values.whereType<double>();
+String speedLabel(Activity activity) {
+  if (activity.durationMin <= 0) return '--';
+  final speed = (activity.distanceKm / activity.durationMin) * 60;
+  return '${speed.toStringAsFixed(1)} km/h';
+}
+
+String activityPaceOrSpeedLabel(Activity activity) {
+  return isCycling(activity)
+      ? speedLabel(activity)
+      : paceLabel(activity.paceMinKm);
+}
+
+String activityPaceOrSpeedTitle(Activity activity) {
+  return isCycling(activity) ? 'Speed' : 'Pace';
+}
+
+Iterable<double> nonNullDoubles(Iterable<double?> values) =>
+    values.whereType<double>();
 
 String shortDate(String value) {
   final date = DateTime.tryParse(value);

@@ -74,7 +74,7 @@ OLLAMA_TOOLS = [
         "type": "function",
         "function": {
             "name": "get_pace_hr_trend",
-            "description": "Calculate weekly pace/HR efficiency trend. Efficiency = pace per km divided by avg HR. Worsening efficiency means fitness is declining or fatigue is accumulating despite similar effort.",
+            "description": "Calculate weekly running efficiency in meters per heartbeat. Higher efficiency means the athlete is covering more distance per heartbeat; a falling trend can indicate fatigue, heat, terrain changes, or declining aerobic efficiency.",
             "parameters": {
                 "type": "object",
                 "properties": {

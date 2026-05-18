@@ -147,11 +147,22 @@ import FitnessTracker from '../components/FitnessTracker.tsx';
     .pagination span { color: var(--muted-foreground); font-family: "JetBrains Mono", monospace; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; }
     .pagination button:disabled { opacity: .35; cursor: default; }
     .run-list { border-top: 1px solid var(--border); }
-    .run-row { display: grid; grid-template-columns: minmax(0, 1fr) 90px 96px 84px; gap: .75rem; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--border); font-size: .95rem; }
+    .run-row { appearance: none; width: 100%; background: transparent; border: 0; border-bottom: 1px solid var(--border); color: inherit; display: grid; grid-template-columns: minmax(0, 1fr) 90px 96px 84px; gap: .75rem; align-items: center; padding: 1rem 0; font-size: .95rem; text-align: left; cursor: pointer; transition: color 150ms cubic-bezier(.25,0,0,1), border-color 150ms cubic-bezier(.25,0,0,1); }
+    .run-row:hover { color: var(--accent); border-color: var(--accent); }
     .run-row strong, .run-row span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .run-row strong { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; }
     .run-row span { color: var(--muted-foreground); font-family: "JetBrains Mono", monospace; font-size: .7rem; margin-top: .25rem; letter-spacing: .04em; }
     .run-row > div:not(:first-child) { font-family: "JetBrains Mono", monospace; font-size: .78rem; color: var(--foreground); }
+    .activity-modal { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 1.25rem; background: rgba(10,10,10,.78); }
+    .activity-card { width: min(620px, 100%); position: relative; background: var(--background); border: 1px solid var(--border); padding: clamp(1.25rem, 4vw, 2rem); box-shadow: 0 24px 80px rgba(0,0,0,.35); }
+    .activity-card h2 { max-width: 32rem; font-size: clamp(2.25rem, 6vw, 4.5rem); line-height: .88; letter-spacing: -0.06em; text-transform: uppercase; margin: 0 2rem .75rem 0; }
+    .activity-date { color: var(--muted-foreground); font-family: "JetBrains Mono", monospace; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 1.5rem; }
+    .activity-close { position: absolute; top: 1rem; right: 1rem; width: 40px; height: 40px; display: grid; place-items: center; background: transparent; border: 1px solid var(--border); color: var(--foreground); font-size: 1.5rem; line-height: 1; cursor: pointer; }
+    .activity-close:hover { color: var(--accent); border-color: var(--accent); }
+    .activity-detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
+    .activity-detail-grid > div { min-height: 96px; padding: 1rem; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); display: grid; align-content: space-between; }
+    .activity-detail-grid span { color: var(--muted-foreground); font-family: "JetBrains Mono", monospace; font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .14em; }
+    .activity-detail-grid strong { font-size: clamp(1.35rem, 3vw, 2rem); line-height: 1; letter-spacing: -0.04em; }
     .coach-panel { height: calc(100vh - 3rem); min-height: 680px; display: grid; grid-template-rows: auto minmax(0, 1fr); position: sticky; top: 1.5rem; background: var(--background); }
     .coach-head { padding: 1.5rem 1.5rem .75rem; border-bottom: 1px solid var(--border); }
     .coach-panel > div:last-child { min-height: 0; }
@@ -170,6 +181,7 @@ import FitnessTracker from '../components/FitnessTracker.tsx';
       .pagination { justify-content: space-between; }
       .run-row { grid-template-columns: 1fr 74px; }
       .run-row div:nth-child(3), .run-row div:nth-child(4) { display: none; }
+      .activity-detail-grid { grid-template-columns: 1fr 1fr; }
       .coach-panel { height: 620px; min-height: 0; }
     }
   </style>
