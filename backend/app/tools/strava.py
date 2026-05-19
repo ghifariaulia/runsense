@@ -14,27 +14,33 @@ STRAVA_AUTH = "https://www.strava.com/oauth"
 
 # ── OAuth ──────────────────────────────────────────────────────────────────────
 
-def get_auth_url(redirect_uri: Optional[str] = None) -> str:
+def get_auth_url(redirect_uri: Optional[str] = None, mobile: bool = False) -> str:
     scope = "activity:read_all"
     callback_url = redirect_uri or f"{settings.frontend_url}/auth/callback"
     params = urlencode({
         "client_id": settings.strava_client_id,
         "redirect_uri": callback_url,
         "response_type": "code",
+        "approval_prompt": "auto",
         "scope": scope,
     })
-    return f"{STRAVA_AUTH}/authorize?{params}"
+    endpoint = "mobile/authorize" if mobile else "authorize"
+    return f"{STRAVA_AUTH}/{endpoint}?{params}"
 
 
-async def exchange_code(code: str) -> dict:
+async def exchange_code(code: str, redirect_uri: Optional[str] = None) -> dict:
     """Exchange auth code for access + refresh tokens."""
+    data = {
+        "client_id": settings.strava_client_id,
+        "client_secret": settings.strava_client_secret,
+        "code": code,
+        "grant_type": "authorization_code",
+    }
+    if redirect_uri:
+        data["redirect_uri"] = redirect_uri
+
     async with httpx.AsyncClient() as client:
-        r = await client.post(f"{STRAVA_AUTH}/token", data={
-            "client_id": settings.strava_client_id,
-            "client_secret": settings.strava_client_secret,
-            "code": code,
-            "grant_type": "authorization_code",
-        })
+        r = await client.post(f"{STRAVA_AUTH}/token", data=data)
         r.raise_for_status()
         return r.json()
 

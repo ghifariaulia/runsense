@@ -31,7 +31,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="runsense" android:host="auth" />
+                <data android:scheme="runsense" />
             </intent-filter>
         </activity>
         <meta-data

@@ -5,6 +5,7 @@ These functions are used both as standalone helpers and wrapped as Claude tools.
 import httpx
 from datetime import datetime, timedelta
 from typing import Optional
+from urllib.parse import urlencode
 from app.core.config import settings
 
 STRAVA_BASE = "https://www.strava.com/api/v3"
@@ -13,26 +14,33 @@ STRAVA_AUTH = "https://www.strava.com/oauth"
 
 # ── OAuth ──────────────────────────────────────────────────────────────────────
 
-def get_auth_url() -> str:
+def get_auth_url(redirect_uri: Optional[str] = None, mobile: bool = False) -> str:
     scope = "activity:read_all"
-    return (
-        f"{STRAVA_AUTH}/authorize"
-        f"?client_id={settings.strava_client_id}"
-        f"&redirect_uri={settings.frontend_url}/auth/callback"
-        f"&response_type=code"
-        f"&scope={scope}"
-    )
+    callback_url = redirect_uri or f"{settings.frontend_url}/auth/callback"
+    params = urlencode({
+        "client_id": settings.strava_client_id,
+        "redirect_uri": callback_url,
+        "response_type": "code",
+        "approval_prompt": "auto",
+        "scope": scope,
+    })
+    endpoint = "mobile/authorize" if mobile else "authorize"
+    return f"{STRAVA_AUTH}/{endpoint}?{params}"
 
 
-async def exchange_code(code: str) -> dict:
+async def exchange_code(code: str, redirect_uri: Optional[str] = None) -> dict:
     """Exchange auth code for access + refresh tokens."""
+    data = {
+        "client_id": settings.strava_client_id,
+        "client_secret": settings.strava_client_secret,
+        "code": code,
+        "grant_type": "authorization_code",
+    }
+    if redirect_uri:
+        data["redirect_uri"] = redirect_uri
+
     async with httpx.AsyncClient() as client:
-        r = await client.post(f"{STRAVA_AUTH}/token", data={
-            "client_id": settings.strava_client_id,
-            "client_secret": settings.strava_client_secret,
-            "code": code,
-            "grant_type": "authorization_code",
-        })
+        r = await client.post(f"{STRAVA_AUTH}/token", data=data)
         r.raise_for_status()
         return r.json()
 
