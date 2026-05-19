@@ -11,7 +11,8 @@
     <application
         android:label="RunSense"
         android:name="${applicationName}"
-        android:icon="@drawable/ic_launcher">
+        android:icon="@drawable/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

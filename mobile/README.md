@@ -15,10 +15,16 @@ Install Flutter, then from this directory:
 
 ```bash
 flutter pub get
-flutter run --dart-define=API_URL=http://10.0.2.2:8081
+flutter run
 ```
 
-Use `http://10.0.2.2:8081` for the Android emulator, or your machine LAN IP for a physical device.
+The Android emulator defaults to `http://10.0.2.2:8081`. iOS and desktop
+default to `http://localhost:8081`. For a physical device, pass your machine
+LAN IP:
+
+```bash
+flutter run --dart-define=API_URL=http://192.168.1.20:8081
+```
 
 ## Strava OAuth
 
