@@ -1,4 +1,4 @@
-const API_URL = (import.meta.env.PUBLIC_API_URL || 'http://136.112.108.87:8081').replace(/\/+$/, '');
+const API_URL = (import.meta.env.PUBLIC_API_URL || 'http://localhost:8081').replace(/\/+$/, '');
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {

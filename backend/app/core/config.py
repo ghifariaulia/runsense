@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     # App
     secret_key: str = "change-me-in-production"
     frontend_url: str = "http://localhost:4321"
+    cors_origins: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
