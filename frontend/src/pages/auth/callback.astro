@@ -1,5 +1,6 @@
 ---
-const apiUrl = (import.meta.env.PUBLIC_API_URL || 'http://localhost:8081').replace(/\/+$/, '');
+const defaultApiUrl = import.meta.env.PROD ? '' : 'http://localhost:8081';
+const apiUrl = (import.meta.env.PUBLIC_API_URL ?? defaultApiUrl).replace(/\/+$/, '');
 ---
 <!doctype html>
 <html lang="en">
