@@ -16,7 +16,13 @@ interface Series {
   key: string;
   label: string;
   color: string;
-  values: number[];
+  values: Array<number | null>;
+  dashed?: boolean;
+}
+
+interface RoutePoint {
+  lat: number;
+  lng: number;
 }
 
 function paceLabel(value: number | null | undefined) {
@@ -43,6 +49,78 @@ function activityPaceOrSpeedTitle(activity: Activity) {
   return isCyclingActivity(activity) ? 'Speed' : 'Pace';
 }
 
+function decodePolyline(polyline: string): RoutePoint[] {
+  const points: RoutePoint[] = [];
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
+
+  while (index < polyline.length) {
+    let result = 0;
+    let shift = 0;
+    let byte = 0;
+    do {
+      byte = polyline.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    lat += result & 1 ? ~(result >> 1) : result >> 1;
+
+    result = 0;
+    shift = 0;
+    do {
+      byte = polyline.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    lng += result & 1 ? ~(result >> 1) : result >> 1;
+
+    points.push({ lat: lat / 1e5, lng: lng / 1e5 });
+  }
+
+  return points;
+}
+
+function routePath(points: RoutePoint[], width: number, height: number, pad: number) {
+  if (points.length < 2) return '';
+  const minLat = Math.min(...points.map(point => point.lat));
+  const maxLat = Math.max(...points.map(point => point.lat));
+  const minLng = Math.min(...points.map(point => point.lng));
+  const maxLng = Math.max(...points.map(point => point.lng));
+  const latSpan = maxLat - minLat || 1;
+  const lngSpan = maxLng - minLng || 1;
+  const scale = Math.min((width - pad * 2) / lngSpan, (height - pad * 2) / latSpan);
+  const routeWidth = lngSpan * scale;
+  const routeHeight = latSpan * scale;
+  const offsetX = (width - routeWidth) / 2;
+  const offsetY = (height - routeHeight) / 2;
+
+  return points
+    .map((point, index) => {
+      const x = offsetX + (point.lng - minLng) * scale;
+      const y = offsetY + (maxLat - point.lat) * scale;
+      return `${index === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(' ');
+}
+
+function routePoint(points: RoutePoint[], pointIndex: number, width: number, height: number, pad: number) {
+  const point = points[pointIndex];
+  const minLat = Math.min(...points.map(item => item.lat));
+  const maxLat = Math.max(...points.map(item => item.lat));
+  const minLng = Math.min(...points.map(item => item.lng));
+  const maxLng = Math.max(...points.map(item => item.lng));
+  const latSpan = maxLat - minLat || 1;
+  const lngSpan = maxLng - minLng || 1;
+  const scale = Math.min((width - pad * 2) / lngSpan, (height - pad * 2) / latSpan);
+  const offsetX = (width - lngSpan * scale) / 2;
+  const offsetY = (height - latSpan * scale) / 2;
+  return {
+    x: offsetX + (point.lng - minLng) * scale,
+    y: offsetY + (maxLat - point.lat) * scale,
+  };
+}
+
 function shortDate(value: string) {
   return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
@@ -65,15 +143,23 @@ function isRunActivity(activity: Activity) {
   return activity.type === 'Run' || activity.type === 'TrailRun' || activity.type === 'VirtualRun';
 }
 
-function linePath(values: number[], width: number, height: number, min: number, max: number) {
+function linePath(values: Array<number | null>, width: number, height: number, min: number, max: number) {
   if (values.length === 0) return '';
   const span = max - min || 1;
+  let started = false;
   return values
     .map((value, index) => {
+      if (value === null) {
+        started = false;
+        return '';
+      }
       const x = values.length === 1 ? width / 2 : (index / (values.length - 1)) * width;
       const y = height - ((value - min) / span) * height;
-      return `${index === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+      const command = started ? 'L' : 'M';
+      started = true;
+      return `${command} ${x.toFixed(1)} ${y.toFixed(1)}`;
     })
+    .filter(Boolean)
     .join(' ');
 }
 
@@ -85,13 +171,20 @@ function point(value: number, index: number, count: number, width: number, heigh
   };
 }
 
+function lastNumberIndex(values: Array<number | null>) {
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    if (values[index] !== null) return index;
+  }
+  return -1;
+}
+
 function LineChart({ series, labels, height = 180 }: { series: Series[]; labels: string[]; height?: number }) {
   const width = 640;
   const pad = 28;
   const leftPad = 58;
   const plotWidth = width - leftPad - pad;
   const chartHeight = height - pad * 2;
-  const allValues = series.flatMap(item => item.values);
+  const allValues = series.flatMap(item => item.values).filter((value): value is number => value !== null);
   const min = allValues.length ? Math.min(...allValues, 0) : 0;
   const max = allValues.length ? Math.max(...allValues, 1) : 1;
   const mid = (min + max) / 2;
@@ -112,14 +205,17 @@ function LineChart({ series, labels, height = 180 }: { series: Series[]; labels:
               fill="none"
               stroke={item.color}
               strokeWidth="3"
+              strokeDasharray={item.dashed ? '8 7' : undefined}
               strokeLinecap="square"
               strokeLinejoin="miter"
             />
           ))}
           {series.map(item => {
             if (!item.values.length) return null;
-            const latest = item.values[item.values.length - 1];
-            const latestPoint = point(latest, item.values.length - 1, item.values.length, plotWidth, chartHeight, min, max);
+            const latestIndex = lastNumberIndex(item.values);
+            if (latestIndex === -1) return null;
+            const latest = item.values[latestIndex] as number;
+            const latestPoint = point(latest, latestIndex, item.values.length, plotWidth, chartHeight, min, max);
             return (
               <g key={`${item.key}-value`}>
                 <circle cx={latestPoint.x} cy={latestPoint.y} r="3.5" fill={item.color} />
@@ -172,6 +268,33 @@ function ActivityDetail({ label, value }: { label: string; value: string }) {
     <div>
       <span>{label}</span>
       <strong>{value}</strong>
+    </div>
+  );
+}
+
+function RoutePreview({ polyline }: { polyline?: string | null }) {
+  const points = useMemo(() => (polyline ? decodePolyline(polyline) : []), [polyline]);
+  if (points.length < 2) {
+    return (
+      <div className="route-preview empty">
+        <span>No route map available</span>
+      </div>
+    );
+  }
+
+  const width = 560;
+  const height = 220;
+  const pad = 18;
+  const start = routePoint(points, 0, width, height, pad);
+  const end = routePoint(points, points.length - 1, width, height, pad);
+
+  return (
+    <div className="route-preview" aria-label="Activity route shape">
+      <svg viewBox={`0 0 ${width} ${height}`} role="img">
+        <path d={routePath(points, width, height, pad)} />
+        <circle cx={start.x} cy={start.y} r="5" className="route-start" />
+        <circle cx={end.x} cy={end.y} r="5" className="route-end" />
+      </svg>
     </div>
   );
 }
@@ -251,6 +374,7 @@ export default function FitnessTracker() {
     return hrs.length ? Math.round(sum(hrs) / hrs.length) : null;
   }, [activities]);
   const heroDistance = fourWeekDistance || Number(totalDistance.toFixed(1));
+  const projected = fitness?.projection.end;
 
   if (state === 'loading') {
     return (
@@ -300,7 +424,8 @@ export default function FitnessTracker() {
       <section className="stat-grid">
         <StatTile label="4 week distance" value={`${heroDistance} km`} detail={`${activities.length} loaded activities`} />
         <StatTile label="Current fitness" value={`${fitness?.current.ctl ?? '--'} CTL`} detail={`${fitness?.ctl_change ?? '--'} over 4 weeks`} />
-        <StatTile label="Fatigue balance" value={`${fitness?.current.tsb ?? '--'} TSB`} detail={fitness?.current.tsb && fitness.current.tsb < -20 ? 'high fatigue' : 'manageable load'} />
+        <StatTile label="Projected fitness" value={`${projected?.ctl ?? '--'} CTL`} detail={fitness ? `${fitness.projection.ctl_change >= 0 ? '+' : ''}${fitness.projection.ctl_change} in ${fitness.projection.days} days` : 'waiting for HR data'} />
+        <StatTile label="Projected fatigue" value={`${projected?.atl ?? '--'} ATL`} detail={projected ? `${projected.tsb} TSB projected` : 'waiting for HR data'} />
         <StatTile label="Avg run pace / HR" value={paceLabel(avgPace)} detail={avgHr ? `${avgHr} bpm average, all activities` : 'HR not available'} />
       </section>
 
@@ -316,18 +441,23 @@ export default function FitnessTracker() {
                 <span><i className="ctl" />CTL</span>
                 <span><i className="atl" />ATL</span>
                 <span><i className="tsb" />TSB</span>
+                <span><i className="projected" />Projection</span>
               </div>
             </div>
             {fitness && (
               <LineChart
-                labels={fitness.trend.map(item => shortDate(item.date))}
+                labels={[...fitness.trend, ...fitness.projection.trend].map(item => shortDate(item.date))}
                 series={[
-                  { key: 'ctl', label: 'CTL', color: '#FAFAFA', values: fitness.trend.map(item => item.ctl) },
-                  { key: 'atl', label: 'ATL', color: '#FF3D00', values: fitness.trend.map(item => item.atl) },
-                  { key: 'tsb', label: 'TSB', color: '#737373', values: fitness.trend.map(item => item.tsb) },
+                  { key: 'ctl', label: 'CTL', color: '#FAFAFA', values: [...fitness.trend.map(item => item.ctl), ...Array(fitness.projection.trend.length).fill(null)] },
+                  { key: 'atl', label: 'ATL', color: '#FF3D00', values: [...fitness.trend.map(item => item.atl), ...Array(fitness.projection.trend.length).fill(null)] },
+                  { key: 'tsb', label: 'TSB', color: '#737373', values: [...fitness.trend.map(item => item.tsb), ...Array(fitness.projection.trend.length).fill(null)] },
+                  { key: 'ctl-projected', label: 'Projected CTL', color: '#FAFAFA', dashed: true, values: [...Array(fitness.trend.length - 1).fill(null), fitness.current.ctl, ...fitness.projection.trend.map(item => item.ctl)] },
+                  { key: 'atl-projected', label: 'Projected ATL', color: '#FF3D00', dashed: true, values: [...Array(fitness.trend.length - 1).fill(null), fitness.current.atl, ...fitness.projection.trend.map(item => item.atl)] },
+                  { key: 'tsb-projected', label: 'Projected TSB', color: '#737373', dashed: true, values: [...Array(fitness.trend.length - 1).fill(null), fitness.current.tsb, ...fitness.projection.trend.map(item => item.tsb)] },
                 ]}
               />
             )}
+            {fitness && <p>{fitness.projection.assumption} Daily TSS assumption: {fitness.projection.daily_tss_assumption}.</p>}
           </article>
 
           <article className="panel">
@@ -433,6 +563,7 @@ export default function FitnessTracker() {
             <p className="section-kicker">{selectedActivity.type}</p>
             <h2 id="activity-title">{selectedActivity.name}</h2>
             <p className="activity-date">{shortDate(selectedActivity.date)} · {selectedActivity.date}</p>
+            <RoutePreview polyline={selectedActivity.summary_polyline} />
             <div className="activity-detail-grid">
               <ActivityDetail label="Distance" value={`${selectedActivity.distance_km} km`} />
               <ActivityDetail label="Duration" value={`${selectedActivity.duration_min} min`} />

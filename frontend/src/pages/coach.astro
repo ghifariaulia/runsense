@@ -108,6 +108,7 @@ import FitnessTracker from '../components/FitnessTracker.tsx';
     .legend .ctl { background: var(--foreground); }
     .legend .atl { background: var(--accent); }
     .legend .tsb { background: var(--muted-foreground); }
+    .legend .projected { border-top: 2px dashed var(--muted-foreground); }
     .chart-frame { width: 100%; overflow: hidden; }
     .chart-frame svg { width: 100%; height: auto; display: block; }
     .axis { stroke: var(--border); stroke-width: 1; }
@@ -159,6 +160,13 @@ import FitnessTracker from '../components/FitnessTracker.tsx';
     .activity-date { color: var(--muted-foreground); font-family: "JetBrains Mono", monospace; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 1.5rem; }
     .activity-close { position: absolute; top: 1rem; right: 1rem; width: 40px; height: 40px; display: grid; place-items: center; background: transparent; border: 1px solid var(--border); color: var(--foreground); font-size: 1.5rem; line-height: 1; cursor: pointer; }
     .activity-close:hover { color: var(--accent); border-color: var(--accent); }
+    .route-preview { width: 100%; height: 220px; margin: 0 0 1.25rem; border: 1px solid var(--border); background: radial-gradient(circle at 50% 50%, rgba(250,250,250,.055), transparent 68%); overflow: hidden; }
+    .route-preview svg { width: 100%; height: 100%; display: block; }
+    .route-preview path { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+    .route-preview circle { stroke: var(--background); stroke-width: 3; vector-effect: non-scaling-stroke; }
+    .route-preview .route-start { fill: var(--foreground); }
+    .route-preview .route-end { fill: var(--accent); }
+    .route-preview.empty { display: grid; place-items: center; color: var(--muted-foreground); font-family: "JetBrains Mono", monospace; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .14em; }
     .activity-detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
     .activity-detail-grid > div { min-height: 96px; padding: 1rem; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); display: grid; align-content: space-between; }
     .activity-detail-grid span { color: var(--muted-foreground); font-family: "JetBrains Mono", monospace; font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .14em; }

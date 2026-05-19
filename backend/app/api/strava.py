@@ -35,8 +35,8 @@ async def personal_records(req: StravaRequest):
 
 
 @router.post("/fitness")
-async def fitness_metrics(req: StravaRequest, days: int = 56):
+async def fitness_metrics(req: StravaRequest, days: int = 56, projection_days: int = 14):
     try:
-        return await get_fitness_metrics(req.access_token, days=days)
+        return await get_fitness_metrics(req.access_token, days=days, projection_days=projection_days)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

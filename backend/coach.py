@@ -54,7 +54,7 @@ TOOLS = [
     },
     {
         "name": "get_fitness_metrics",
-        "description": "Estimate CTL (fitness), ATL (fatigue), and TSB (form = CTL minus ATL) from Strava data. Use this to assess training load trends, overtraining risk, and race readiness.",
+        "description": "Estimate CTL (fitness), ATL (fatigue), TSB (form = CTL minus ATL), and projected CTL/ATL/TSB from Strava data. Use this to assess training load trends, overtraining risk, race readiness, and likely near-term fitness/fatigue if recent load continues.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -62,6 +62,11 @@ TOOLS = [
                     "type": "integer",
                     "description": "Number of days to analyze (default 56 = 8 weeks)",
                     "default": 56,
+                },
+                "projection_days": {
+                    "type": "integer",
+                    "description": "Number of future days to project from recent average daily TSS (default 14, max 42)",
+                    "default": 14,
                 }
             },
         },

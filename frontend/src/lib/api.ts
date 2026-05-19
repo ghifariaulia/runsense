@@ -54,6 +54,7 @@ export interface Activity {
   avg_hr: number | null;
   max_hr: number | null;
   elevation_m: number | null;
+  summary_polyline?: string | null;
   type: string;
 }
 
@@ -62,6 +63,16 @@ export interface FitnessMetrics {
   four_weeks_ago: { date: string; ctl: number };
   ctl_change: number;
   trend: Array<{ date: string; ctl: number; atl: number; tsb: number; tss: number }>;
+  projection: {
+    days: number;
+    daily_tss_assumption: number;
+    end: { date: string; ctl: number; atl: number; tsb: number };
+    ctl_change: number;
+    atl_change: number;
+    tsb_change: number;
+    trend: Array<{ date: string; ctl: number; atl: number; tsb: number; tss: number; projected: boolean }>;
+    assumption: string;
+  };
   interpretation: string;
   note: string;
 }
@@ -91,8 +102,8 @@ export async function getActivities(accessToken: string, weeks = 8): Promise<Act
   return request(`/api/strava/activities?weeks=${weeks}`, tokenBody(accessToken));
 }
 
-export async function getFitness(accessToken: string, days = 56): Promise<FitnessMetrics> {
-  return request(`/api/strava/fitness?days=${days}`, tokenBody(accessToken));
+export async function getFitness(accessToken: string, days = 56, projectionDays = 14): Promise<FitnessMetrics> {
+  return request(`/api/strava/fitness?days=${days}&projection_days=${projectionDays}`, tokenBody(accessToken));
 }
 
 export async function getPaceHrTrend(accessToken: string, weeks = 8): Promise<PaceHrTrend[]> {

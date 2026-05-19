@@ -83,6 +83,7 @@ async def get_recent_activities(access_token: str, weeks: int = 8) -> list[dict]
             "avg_hr": a.get("average_heartrate"),
             "max_hr": a.get("max_heartrate"),
             "elevation_m": a.get("total_elevation_gain"),
+            "summary_polyline": a.get("map", {}).get("summary_polyline"),
             "type": a["sport_type"],
         }
         for a in activities

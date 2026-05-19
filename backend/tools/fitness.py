@@ -21,22 +21,22 @@ def estimate_tss(duration_min: float, avg_hr: float, threshold_hr: float = DEFAU
     return round((hours * intensity_factor ** 2) * 100, 1)
 
 
-async def get_fitness_metrics(access_token: str, days: int = 56) -> dict:
+async def get_fitness_metrics(access_token: str, days: int = 56, projection_days: int = 14) -> dict:
     """
-    Estimate CTL (fitness), ATL (fatigue), TSB (form) from Strava runs.
+    Estimate CTL (fitness), ATL (fatigue), TSB (form) from Strava activities.
     
     CTL = 42-day exponential weighted average of daily TSS
     ATL = 7-day exponential weighted average of daily TSS
     TSB = CTL - ATL (positive = fresh, negative = fatigued)
     """
-    runs = await get_recent_activities(access_token, weeks=max(days // 7, 12))
+    activities = await get_recent_activities(access_token, weeks=max(days // 7, 12))
 
     # Build daily TSS map
     daily_tss: dict = defaultdict(float)
-    for run in runs:
-        if run["avg_hr"] and run["duration_min"]:
-            tss = estimate_tss(run["duration_min"], run["avg_hr"])
-            daily_tss[run["date"]] += tss
+    for activity in activities:
+        if activity["avg_hr"] and activity["duration_min"]:
+            tss = estimate_tss(activity["duration_min"], activity["avg_hr"])
+            daily_tss[activity["date"]] += tss
 
     # Generate date range
     today = datetime.now().date()
@@ -63,6 +63,26 @@ async def get_fitness_metrics(access_token: str, days: int = 56) -> dict:
 
     latest = trend[-1]
     four_weeks_ago = trend[-28] if len(trend) >= 28 else trend[0]
+    recent_tss = [point["tss"] for point in trend[-28:]]
+    projected_daily_tss = sum(recent_tss) / len(recent_tss) if recent_tss else 0.0
+    projection = []
+
+    projection_days = max(0, min(projection_days, 42))
+    for offset in range(1, projection_days + 1):
+        date = (today + timedelta(days=offset)).isoformat()
+        ctl = ctl * ctl_decay + projected_daily_tss * (1 - ctl_decay)
+        atl = atl * atl_decay + projected_daily_tss * (1 - atl_decay)
+        tsb = ctl - atl
+        projection.append({
+            "date": date,
+            "ctl": round(ctl, 1),
+            "atl": round(atl, 1),
+            "tsb": round(tsb, 1),
+            "tss": round(projected_daily_tss, 1),
+            "projected": True,
+        })
+
+    projected_end = projection[-1] if projection else latest
 
     return {
         "current": {
@@ -77,6 +97,21 @@ async def get_fitness_metrics(access_token: str, days: int = 56) -> dict:
         },
         "ctl_change": round(latest["ctl"] - four_weeks_ago["ctl"], 1),
         "trend": trend[-28:],  # last 4 weeks for charting
+        "projection": {
+            "days": projection_days,
+            "daily_tss_assumption": round(projected_daily_tss, 1),
+            "end": {
+                "date": projected_end["date"],
+                "ctl": projected_end["ctl"],
+                "atl": projected_end["atl"],
+                "tsb": projected_end["tsb"],
+            },
+            "ctl_change": round(projected_end["ctl"] - latest["ctl"], 1),
+            "atl_change": round(projected_end["atl"] - latest["atl"], 1),
+            "tsb_change": round(projected_end["tsb"] - latest["tsb"], 1),
+            "trend": projection,
+            "assumption": "Projection assumes the last 28 days' average daily TSS continues.",
+        },
         "interpretation": _interpret(latest["tsb"], latest["ctl"], four_weeks_ago["ctl"]),
         "note": "CTL/ATL estimated from Strava HR + duration data (Coggan TSS approximation).",
     }
