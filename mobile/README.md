@@ -15,10 +15,10 @@ Install Flutter, then from this directory:
 
 ```bash
 flutter pub get
-flutter run --dart-define=API_URL=http://10.0.2.2:8081
+flutter run --dart-define=API_URL=http://136.112.108.87:8081
 ```
 
-Use `http://10.0.2.2:8081` for the Android emulator, or your machine LAN IP for a physical device.
+The mobile app defaults to `http://136.112.108.87:8081`. Override `API_URL` only when targeting a different backend.
 
 ## Strava OAuth
 
@@ -34,7 +34,7 @@ For a deployed callback domain, pass the same domain in the mobile redirect URI:
 
 ```bash
 flutter run \
-  --dart-define=API_URL=http://10.0.2.2:8081 \
+  --dart-define=API_URL=http://136.112.108.87:8081 \
   --dart-define=STRAVA_REDIRECT_URI=runsense://yourdomain.com/auth/callback
 ```
 
