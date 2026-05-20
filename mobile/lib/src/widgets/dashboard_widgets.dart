@@ -221,7 +221,11 @@ class ActivityRow extends StatelessWidget {
   }
 }
 
-void showActivityDetails(BuildContext context, Activity activity) {
+void showActivityDetails(
+  BuildContext context,
+  Activity activity, {
+  required Future<List<ActivitySplit>> Function(int activityId) loadSplits,
+}) {
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: AppColors.background,
@@ -278,12 +282,117 @@ void showActivityDetails(BuildContext context, Activity activity) {
                       value: '${(activity.elevationM ?? 0).round()} m'),
                 ],
               ),
+              const SizedBox(height: 18),
+              Text('SPLITS', style: KickerStyle.text),
+              const SizedBox(height: 10),
+              FutureBuilder<List<ActivitySplit>>(
+                future: loadSplits(activity.id),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text('Loading splits...',
+                          style: TextStyle(color: AppColors.muted)),
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Text(snapshot.error.toString(),
+                          style: const TextStyle(color: AppColors.muted)),
+                    );
+                  }
+                  final splits = snapshot.data ?? [];
+                  if (splits.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text('No splits available for this activity.',
+                          style: TextStyle(color: AppColors.muted)),
+                    );
+                  }
+                  return SplitTable(splits: splits);
+                },
+              ),
             ],
           ),
         ),
       );
     },
   );
+}
+
+class SplitTable extends StatelessWidget {
+  const SplitTable({super.key, required this.splits});
+  final List<ActivitySplit> splits;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(border: Border.all(color: AppColors.border)),
+      child: Column(
+        children: [
+          const SplitRow(
+            split: 'KM',
+            pace: 'Pace',
+            time: 'Time',
+            hr: 'HR',
+            elev: 'Elev',
+            header: true,
+          ),
+          ...splits.map((split) => SplitRow(
+                split: split.split.toString(),
+                pace: paceLabel(split.paceMinKm),
+                time: durationLabel(split.movingTimeSec),
+                hr: split.avgHr == null
+                    ? '--'
+                    : split.avgHr!.round().toString(),
+                elev: split.elevationDifferenceM == null
+                    ? '--'
+                    : '${split.elevationDifferenceM!.round()} m',
+              )),
+        ],
+      ),
+    );
+  }
+}
+
+class SplitRow extends StatelessWidget {
+  const SplitRow({
+    super.key,
+    required this.split,
+    required this.pace,
+    required this.time,
+    required this.hr,
+    required this.elev,
+    this.header = false,
+  });
+  final String split;
+  final String pace;
+  final String time;
+  final String hr;
+  final String elev;
+  final bool header;
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(
+      color: header ? AppColors.muted : AppColors.foreground,
+      fontSize: 12,
+      fontWeight: header ? FontWeight.w800 : FontWeight.w600,
+    );
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.border))),
+      child: Row(
+        children: [
+          SizedBox(width: 36, child: Text(split, style: style)),
+          Expanded(child: Text(pace, style: style)),
+          Expanded(child: Text(time, style: style)),
+          SizedBox(width: 44, child: Text(hr, style: style)),
+          SizedBox(width: 58, child: Text(elev, style: style)),
+        ],
+      ),
+    );
+  }
 }
 
 class DetailTile extends StatelessWidget {

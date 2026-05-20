@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.tools.strava import get_recent_activities, get_personal_records, get_pace_hr_trend
+from app.tools.strava import get_activity_splits, get_recent_activities, get_personal_records, get_pace_hr_trend
 from app.tools.fitness import get_fitness_metrics
 from pydantic import BaseModel
 
@@ -14,6 +14,14 @@ class StravaRequest(BaseModel):
 async def activities(req: StravaRequest, weeks: int = 8):
     try:
         return await get_recent_activities(req.access_token, weeks=weeks)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/activities/{activity_id}/splits")
+async def activity_splits(activity_id: int, req: StravaRequest):
+    try:
+        return await get_activity_splits(req.access_token, activity_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

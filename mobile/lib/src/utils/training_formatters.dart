@@ -43,6 +43,13 @@ String speedLabel(Activity activity) {
   return '${speed.toStringAsFixed(1)} km/h';
 }
 
+String durationLabel(int? seconds) {
+  if (seconds == null || seconds <= 0) return '--';
+  final minutes = seconds ~/ 60;
+  final remainingSeconds = (seconds % 60).toString().padLeft(2, '0');
+  return '$minutes:$remainingSeconds';
+}
+
 String activityPaceOrSpeedLabel(Activity activity) {
   return isCycling(activity)
       ? speedLabel(activity)

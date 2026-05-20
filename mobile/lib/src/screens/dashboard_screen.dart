@@ -226,7 +226,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 12),
                       ...filtered.take(40).map((activity) => ActivityRow(
                             activity,
-                            onTap: () => showActivityDetails(context, activity),
+                            onTap: () => showActivityDetails(
+                              context,
+                              activity,
+                              loadSplits: (activityId) => _api.activitySplits(
+                                  widget.tokens.accessToken, activityId),
+                            ),
                           )),
                     ],
                   ),

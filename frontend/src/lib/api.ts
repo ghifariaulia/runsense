@@ -59,6 +59,16 @@ export interface Activity {
   type: string;
 }
 
+export interface ActivitySplit {
+  split: number;
+  distance_km: number;
+  elapsed_time_sec: number | null;
+  moving_time_sec: number;
+  pace_min_km: number | null;
+  avg_hr: number | null;
+  elevation_difference_m: number | null;
+}
+
 export interface FitnessMetrics {
   current: { date: string; ctl: number; atl: number; tsb: number };
   four_weeks_ago: { date: string; ctl: number };
@@ -101,6 +111,10 @@ function tokenBody(accessToken: string) {
 
 export async function getActivities(accessToken: string, weeks = 8): Promise<Activity[]> {
   return request(`/api/strava/activities?weeks=${weeks}`, tokenBody(accessToken));
+}
+
+export async function getActivitySplits(accessToken: string, activityId: number): Promise<ActivitySplit[]> {
+  return request(`/api/strava/activities/${activityId}/splits`, tokenBody(accessToken));
 }
 
 export async function getFitness(accessToken: string, days = 56, projectionDays = 14): Promise<FitnessMetrics> {

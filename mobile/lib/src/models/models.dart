@@ -67,6 +67,37 @@ class Activity {
       );
 }
 
+class ActivitySplit {
+  ActivitySplit({
+    required this.split,
+    required this.distanceKm,
+    required this.elapsedTimeSec,
+    required this.movingTimeSec,
+    required this.paceMinKm,
+    required this.avgHr,
+    required this.elevationDifferenceM,
+  });
+
+  final int split;
+  final double distanceKm;
+  final int? elapsedTimeSec;
+  final int movingTimeSec;
+  final double? paceMinKm;
+  final double? avgHr;
+  final double? elevationDifferenceM;
+
+  factory ActivitySplit.fromJson(Map<String, dynamic> json) => ActivitySplit(
+        split: (json['split'] as num?)?.toInt() ?? 0,
+        distanceKm: (json['distance_km'] as num?)?.toDouble() ?? 0,
+        elapsedTimeSec: (json['elapsed_time_sec'] as num?)?.toInt(),
+        movingTimeSec: (json['moving_time_sec'] as num?)?.toInt() ?? 0,
+        paceMinKm: (json['pace_min_km'] as num?)?.toDouble(),
+        avgHr: (json['avg_hr'] as num?)?.toDouble(),
+        elevationDifferenceM:
+            (json['elevation_difference_m'] as num?)?.toDouble(),
+      );
+}
+
 class FitnessMetrics {
   FitnessMetrics({
     required this.current,

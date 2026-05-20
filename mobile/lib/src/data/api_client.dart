@@ -99,6 +99,18 @@ class ApiClient {
         .toList();
   }
 
+  Future<List<ActivitySplit>> activitySplits(
+      String accessToken, int activityId) async {
+    final data = await _request<List<dynamic>>(
+      '/api/strava/activities/$activityId/splits',
+      method: 'POST',
+      body: {'access_token': accessToken},
+    );
+    return data
+        .map((item) => ActivitySplit.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<FitnessMetrics> fitness(String accessToken) async {
     final data = await _request<Map<String, dynamic>>(
       '/api/strava/fitness',

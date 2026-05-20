@@ -100,6 +100,35 @@ async def get_recent_activities(access_token: str, weeks: int = 8) -> list[dict]
     return cleaned
 
 
+async def get_activity_splits(access_token: str, activity_id: int) -> list[dict]:
+    """Fetch metric splits for one activity from Strava's detailed activity endpoint."""
+    async with httpx.AsyncClient() as client:
+        r = await client.get(
+            f"{STRAVA_BASE}/activities/{activity_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"include_all_efforts": "false"},
+        )
+        r.raise_for_status()
+
+    activity = r.json()
+    splits = activity.get("splits_metric") or []
+    cleaned = []
+    for index, split in enumerate(splits, start=1):
+        distance_m = split.get("distance") or 0
+        moving_time = split.get("moving_time") or 0
+        pace = round((moving_time / 60) / (distance_m / 1000), 2) if distance_m > 0 else None
+        cleaned.append({
+            "split": split.get("split") or index,
+            "distance_km": round(distance_m / 1000, 2),
+            "elapsed_time_sec": split.get("elapsed_time"),
+            "moving_time_sec": moving_time,
+            "pace_min_km": pace,
+            "avg_hr": split.get("average_heartrate"),
+            "elevation_difference_m": split.get("elevation_difference"),
+        })
+    return cleaned
+
+
 async def get_personal_records(access_token: str) -> dict:
     """Fetch athlete PRs and stats."""
     async with httpx.AsyncClient() as client:

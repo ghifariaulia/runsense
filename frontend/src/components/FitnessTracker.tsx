@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import ChatInterface from './ChatInterface';
 import {
   getActivities,
+  getActivitySplits,
   getFitness,
   getPaceHrTrend,
   type Activity,
+  type ActivitySplit,
   type FitnessMetrics,
   type PaceHrTrend,
 } from '../lib/api';
@@ -30,6 +32,13 @@ function paceLabel(value: number | null | undefined) {
   const minutes = Math.floor(value);
   const seconds = Math.round((value - minutes) * 60).toString().padStart(2, '0');
   return `${minutes}:${seconds}/km`;
+}
+
+function durationLabel(seconds: number | null | undefined) {
+  if (!seconds || seconds <= 0) return '--';
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round(seconds % 60).toString().padStart(2, '0');
+  return `${minutes}:${remainingSeconds}`;
 }
 
 function speedLabel(activity: Activity) {
@@ -308,6 +317,9 @@ export default function FitnessTracker() {
   const [activityType, setActivityType] = useState('All');
   const [activityPage, setActivityPage] = useState(1);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [splitsByActivity, setSplitsByActivity] = useState<Record<number, ActivitySplit[]>>({});
+  const [splitLoadingId, setSplitLoadingId] = useState<number | null>(null);
+  const [splitErrorsByActivity, setSplitErrorsByActivity] = useState<Record<number, string>>({});
 
   const accessToken = typeof localStorage === 'undefined' ? '' : localStorage.getItem('strava_access_token') || '';
   const athleteName = typeof localStorage === 'undefined' ? 'Runner' : localStorage.getItem('strava_athlete_name') || 'Runner';
@@ -343,6 +355,38 @@ export default function FitnessTracker() {
     setActivityPage(1);
   }, [activityType]);
 
+  useEffect(() => {
+    if (!selectedActivity || splitsByActivity[selectedActivity.id]) return;
+
+    let cancelled = false;
+    async function loadSplits() {
+      try {
+        setSplitErrorsByActivity(current => ({ ...current, [selectedActivity.id]: '' }));
+        setSplitLoadingId(selectedActivity.id);
+        const splits = await getActivitySplits(accessToken, selectedActivity.id);
+        if (!cancelled) {
+          setSplitsByActivity(current => ({ ...current, [selectedActivity.id]: splits }));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setSplitErrorsByActivity(current => ({
+            ...current,
+            [selectedActivity.id]: err instanceof Error ? err.message : 'Could not load splits.',
+          }));
+        }
+      } finally {
+        if (!cancelled) {
+          setSplitLoadingId(null);
+        }
+      }
+    }
+
+    loadSplits();
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, selectedActivity, splitsByActivity]);
+
   const activityTypes = useMemo(
     () => ['All', ...Array.from(new Set(activities.map(activity => activity.type))).sort()],
     [activities],
@@ -375,6 +419,9 @@ export default function FitnessTracker() {
   }, [activities]);
   const heroDistance = fourWeekDistance || Number(totalDistance.toFixed(1));
   const projected = fitness?.projection.end;
+  const selectedSplits = selectedActivity ? splitsByActivity[selectedActivity.id] : undefined;
+  const selectedSplitError = selectedActivity ? splitErrorsByActivity[selectedActivity.id] : '';
+  const selectedSplitsLoading = selectedActivity ? splitLoadingId === selectedActivity.id : false;
 
   if (state === 'loading') {
     return (
@@ -571,6 +618,37 @@ export default function FitnessTracker() {
               <ActivityDetail label="Avg HR" value={selectedActivity.avg_hr ? `${Math.round(selectedActivity.avg_hr)} bpm` : '--'} />
               <ActivityDetail label="Max HR" value={selectedActivity.max_hr ? `${Math.round(selectedActivity.max_hr)} bpm` : '--'} />
               <ActivityDetail label="Elevation" value={`${selectedActivity.elevation_m ?? 0} m`} />
+            </div>
+            <div className="splits-block">
+              <div className="splits-head">
+                <h3>Splits</h3>
+                <span>{selectedSplits?.length ? `${selectedSplits.length} km splits` : 'Metric'}</span>
+              </div>
+              {selectedSplitsLoading && <p className="splits-state">Loading splits...</p>}
+              {!selectedSplitsLoading && selectedSplitError && <p className="splits-state">{selectedSplitError}</p>}
+              {!selectedSplitsLoading && !selectedSplitError && selectedSplits && selectedSplits.length === 0 && (
+                <p className="splits-state">No splits available for this activity.</p>
+              )}
+              {!selectedSplitsLoading && !selectedSplitError && selectedSplits && selectedSplits.length > 0 && (
+                <div className="splits-table" role="table" aria-label="Activity kilometer splits">
+                  <div className="splits-row splits-header" role="row">
+                    <span>KM</span>
+                    <span>Pace</span>
+                    <span>Time</span>
+                    <span>HR</span>
+                    <span>Elev</span>
+                  </div>
+                  {selectedSplits.map(split => (
+                    <div className="splits-row" role="row" key={`${selectedActivity.id}-${split.split}`}>
+                      <span>{split.split}</span>
+                      <span>{paceLabel(split.pace_min_km)}</span>
+                      <span>{durationLabel(split.moving_time_sec)}</span>
+                      <span>{split.avg_hr ? `${Math.round(split.avg_hr)}` : '--'}</span>
+                      <span>{split.elevation_difference_m === null ? '--' : `${Math.round(split.elevation_difference_m)} m`}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
