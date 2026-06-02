@@ -1,0 +1,26 @@
+name: runsense_mobile
+description: Mobile RunSense client for Strava-backed AI running insights.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  app_links: ^6.3.3
+  fl_chart: ^0.69.0
+  flutter:
+    sdk: flutter
+  flutter_markdown: ^0.7.4+1
+  flutter_secure_storage: ^9.2.2
+  http: ^1.2.2
+  intl: ^0.19.0
+  url_launcher: ^6.3.1
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

@@ -5,6 +5,7 @@ These functions are used both as standalone helpers and wrapped as Claude tools.
 import httpx
 from datetime import datetime, timedelta
 from typing import Optional
+from urllib.parse import urlencode
 from app.core.config import settings
 
 STRAVA_BASE = "https://www.strava.com/api/v3"
@@ -13,26 +14,33 @@ STRAVA_AUTH = "https://www.strava.com/oauth"
 
 # ── OAuth ──────────────────────────────────────────────────────────────────────
 
-def get_auth_url() -> str:
+def get_auth_url(redirect_uri: Optional[str] = None, mobile: bool = False) -> str:
     scope = "activity:read_all"
-    return (
-        f"{STRAVA_AUTH}/authorize"
-        f"?client_id={settings.strava_client_id}"
-        f"&redirect_uri={settings.frontend_url}/auth/callback"
-        f"&response_type=code"
-        f"&scope={scope}"
-    )
+    callback_url = redirect_uri or f"{settings.frontend_url}/auth/callback"
+    params = urlencode({
+        "client_id": settings.strava_client_id,
+        "redirect_uri": callback_url,
+        "response_type": "code",
+        "approval_prompt": "auto",
+        "scope": scope,
+    })
+    endpoint = "mobile/authorize" if mobile else "authorize"
+    return f"{STRAVA_AUTH}/{endpoint}?{params}"
 
 
-async def exchange_code(code: str) -> dict:
+async def exchange_code(code: str, redirect_uri: Optional[str] = None) -> dict:
     """Exchange auth code for access + refresh tokens."""
+    data = {
+        "client_id": settings.strava_client_id,
+        "client_secret": settings.strava_client_secret,
+        "code": code,
+        "grant_type": "authorization_code",
+    }
+    if redirect_uri:
+        data["redirect_uri"] = redirect_uri
+
     async with httpx.AsyncClient() as client:
-        r = await client.post(f"{STRAVA_AUTH}/token", data={
-            "client_id": settings.strava_client_id,
-            "client_secret": settings.strava_client_secret,
-            "code": code,
-            "grant_type": "authorization_code",
-        })
+        r = await client.post(f"{STRAVA_AUTH}/token", data=data)
         r.raise_for_status()
         return r.json()
 
@@ -75,6 +83,7 @@ async def get_recent_activities(access_token: str, weeks: int = 8) -> list[dict]
             "avg_hr": a.get("average_heartrate"),
             "max_hr": a.get("max_heartrate"),
             "elevation_m": a.get("total_elevation_gain"),
+            "summary_polyline": a.get("map", {}).get("summary_polyline"),
             "type": a["sport_type"],
         }
         for a in activities
@@ -109,8 +118,8 @@ async def get_personal_records(access_token: str) -> dict:
 
 async def get_pace_hr_trend(access_token: str, weeks: int = 8) -> list[dict]:
     """
-    Calculate weekly pace/HR efficiency trend.
-    Efficiency = pace (min/km) / avg_hr — lower is better (faster at lower HR).
+    Calculate weekly running efficiency trend.
+    Efficiency = meters per heartbeat — higher is better.
     """
     runs = await get_recent_activities(access_token, weeks=weeks)
 
@@ -120,10 +129,11 @@ async def get_pace_hr_trend(access_token: str, weeks: int = 8) -> list[dict]:
     for run in runs:
         week = datetime.strptime(run["date"], "%Y-%m-%d").strftime("%Y-W%W")
         if run["avg_hr"] and run["pace_min_km"]:
+            meters_per_beat = 1000 / (run["pace_min_km"] * run["avg_hr"])
             weekly[week].append({
                 "pace": run["pace_min_km"],
                 "hr": run["avg_hr"],
-                "efficiency": round(run["pace_min_km"] / run["avg_hr"], 4),
+                "efficiency": round(meters_per_beat, 2),
             })
 
     trend = []
@@ -131,12 +141,13 @@ async def get_pace_hr_trend(access_token: str, weeks: int = 8) -> list[dict]:
         entries = weekly[week]
         avg_pace = round(sum(e["pace"] for e in entries) / len(entries), 2)
         avg_hr = round(sum(e["hr"] for e in entries) / len(entries), 1)
-        avg_eff = round(sum(e["efficiency"] for e in entries) / len(entries), 4)
+        avg_eff = round(sum(e["efficiency"] for e in entries) / len(entries), 2)
         trend.append({
             "week": week,
             "avg_pace_min_km": avg_pace,
             "avg_hr": avg_hr,
             "efficiency": avg_eff,
+            "efficiency_unit": "m/beat",
             "run_count": len(entries),
         })
     return trend

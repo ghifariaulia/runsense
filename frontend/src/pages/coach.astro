@@ -108,6 +108,7 @@ import FitnessTracker from '../components/FitnessTracker.tsx';
     .legend .ctl { background: var(--foreground); }
     .legend .atl { background: var(--accent); }
     .legend .tsb { background: var(--muted-foreground); }
+    .legend .projected { border-top: 2px dashed var(--muted-foreground); }
     .chart-frame { width: 100%; overflow: hidden; }
     .chart-frame svg { width: 100%; height: auto; display: block; }
     .axis { stroke: var(--border); stroke-width: 1; }
@@ -147,11 +148,39 @@ import FitnessTracker from '../components/FitnessTracker.tsx';
     .pagination span { color: var(--muted-foreground); font-family: "JetBrains Mono", monospace; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; }
     .pagination button:disabled { opacity: .35; cursor: default; }
     .run-list { border-top: 1px solid var(--border); }
-    .run-row { display: grid; grid-template-columns: minmax(0, 1fr) 90px 96px 84px; gap: .75rem; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--border); font-size: .95rem; }
+    .run-row { appearance: none; width: 100%; background: transparent; border: 0; border-bottom: 1px solid var(--border); color: inherit; display: grid; grid-template-columns: minmax(0, 1fr) 90px 96px 84px; gap: .75rem; align-items: center; padding: 1rem 0; font-size: .95rem; text-align: left; cursor: pointer; transition: color 150ms cubic-bezier(.25,0,0,1), border-color 150ms cubic-bezier(.25,0,0,1); }
+    .run-row:hover { color: var(--accent); border-color: var(--accent); }
     .run-row strong, .run-row span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .run-row strong { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; }
     .run-row span { color: var(--muted-foreground); font-family: "JetBrains Mono", monospace; font-size: .7rem; margin-top: .25rem; letter-spacing: .04em; }
     .run-row > div:not(:first-child) { font-family: "JetBrains Mono", monospace; font-size: .78rem; color: var(--foreground); }
+    .activity-modal { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 1.25rem; background: rgba(10,10,10,.78); overflow-y: auto; }
+    .activity-card { width: min(760px, 100%); max-height: calc(100vh - 2.5rem); overflow-y: auto; position: relative; background: var(--background); border: 1px solid var(--border); padding: clamp(1.25rem, 4vw, 2rem); box-shadow: 0 24px 80px rgba(0,0,0,.35); }
+    .activity-card h2 { max-width: 32rem; font-size: clamp(2.25rem, 6vw, 4.5rem); line-height: .88; letter-spacing: -0.06em; text-transform: uppercase; margin: 0 2rem .75rem 0; }
+    .activity-date { color: var(--muted-foreground); font-family: "JetBrains Mono", monospace; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 1.5rem; }
+    .activity-close { position: absolute; top: 1rem; right: 1rem; width: 40px; height: 40px; display: grid; place-items: center; background: transparent; border: 1px solid var(--border); color: var(--foreground); font-size: 1.5rem; line-height: 1; cursor: pointer; }
+    .activity-close:hover { color: var(--accent); border-color: var(--accent); }
+    .route-preview { width: 100%; height: 220px; margin: 0 0 1.25rem; border: 1px solid var(--border); background: radial-gradient(circle at 50% 50%, rgba(250,250,250,.055), transparent 68%); overflow: hidden; }
+    .route-preview svg { width: 100%; height: 100%; display: block; }
+    .route-preview path { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+    .route-preview circle { stroke: var(--background); stroke-width: 3; vector-effect: non-scaling-stroke; }
+    .route-preview .route-start { fill: var(--foreground); }
+    .route-preview .route-end { fill: var(--accent); }
+    .route-preview.empty { display: grid; place-items: center; color: var(--muted-foreground); font-family: "JetBrains Mono", monospace; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .14em; }
+    .activity-detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
+    .activity-detail-grid > div { min-height: 96px; padding: 1rem; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); display: grid; align-content: space-between; }
+    .activity-detail-grid span { color: var(--muted-foreground); font-family: "JetBrains Mono", monospace; font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .14em; }
+    .activity-detail-grid strong { font-size: clamp(1.35rem, 3vw, 2rem); line-height: 1; letter-spacing: -0.04em; }
+    .splits-block { margin-top: 1.5rem; border: 1px solid var(--border); }
+    .splits-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .95rem 1rem; border-bottom: 1px solid var(--border); }
+    .splits-head h3 { font-size: clamp(1.4rem, 3vw, 2.2rem); line-height: .95; letter-spacing: -0.05em; text-transform: uppercase; margin: 0; }
+    .splits-head span, .splits-state, .splits-row { font-family: "JetBrains Mono", monospace; font-size: .72rem; }
+    .splits-head span, .splits-state { color: var(--muted-foreground); font-weight: 800; text-transform: uppercase; letter-spacing: .12em; }
+    .splits-state { padding: 1rem; }
+    .splits-table { max-height: 320px; overflow-y: auto; }
+    .splits-row { display: grid; grid-template-columns: 48px minmax(70px, 1fr) minmax(60px, 1fr) 52px 62px; gap: .75rem; align-items: center; padding: .7rem 1rem; border-bottom: 1px solid var(--border); color: var(--foreground); }
+    .splits-row:last-child { border-bottom: 0; }
+    .splits-header { position: sticky; top: 0; z-index: 1; background: var(--background); color: var(--muted-foreground); font-weight: 800; text-transform: uppercase; letter-spacing: .12em; }
     .coach-panel { height: calc(100vh - 3rem); min-height: 680px; display: grid; grid-template-rows: auto minmax(0, 1fr); position: sticky; top: 1.5rem; background: var(--background); }
     .coach-head { padding: 1.5rem 1.5rem .75rem; border-bottom: 1px solid var(--border); }
     .coach-panel > div:last-child { min-height: 0; }
@@ -170,6 +199,7 @@ import FitnessTracker from '../components/FitnessTracker.tsx';
       .pagination { justify-content: space-between; }
       .run-row { grid-template-columns: 1fr 74px; }
       .run-row div:nth-child(3), .run-row div:nth-child(4) { display: none; }
+      .activity-detail-grid { grid-template-columns: 1fr 1fr; }
       .coach-panel { height: 620px; min-height: 0; }
     }
   </style>

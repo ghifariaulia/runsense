@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import ChatInterface from './ChatInterface';
 import {
   getActivities,
+  getActivitySplits,
   getFitness,
   getPaceHrTrend,
   type Activity,
+  type ActivitySplit,
   type FitnessMetrics,
   type PaceHrTrend,
 } from '../lib/api';
@@ -16,7 +18,13 @@ interface Series {
   key: string;
   label: string;
   color: string;
-  values: number[];
+  values: Array<number | null>;
+  dashed?: boolean;
+}
+
+interface RoutePoint {
+  lat: number;
+  lng: number;
 }
 
 function paceLabel(value: number | null | undefined) {
@@ -24,6 +32,102 @@ function paceLabel(value: number | null | undefined) {
   const minutes = Math.floor(value);
   const seconds = Math.round((value - minutes) * 60).toString().padStart(2, '0');
   return `${minutes}:${seconds}/km`;
+}
+
+function durationLabel(seconds: number | null | undefined) {
+  if (!seconds || seconds <= 0) return '--';
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round(seconds % 60).toString().padStart(2, '0');
+  return `${minutes}:${remainingSeconds}`;
+}
+
+function speedLabel(activity: Activity) {
+  if (!activity.duration_min) return '--';
+  return `${((activity.distance_km / activity.duration_min) * 60).toFixed(1)} km/h`;
+}
+
+function isCyclingActivity(activity: Activity) {
+  return ['Ride', 'VirtualRide', 'MountainBikeRide', 'GravelRide', 'EBikeRide', 'EMountainBikeRide'].includes(activity.type);
+}
+
+function activityPaceOrSpeedLabel(activity: Activity) {
+  return isCyclingActivity(activity) ? speedLabel(activity) : paceLabel(activity.pace_min_km);
+}
+
+function activityPaceOrSpeedTitle(activity: Activity) {
+  return isCyclingActivity(activity) ? 'Speed' : 'Pace';
+}
+
+function decodePolyline(polyline: string): RoutePoint[] {
+  const points: RoutePoint[] = [];
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
+
+  while (index < polyline.length) {
+    let result = 0;
+    let shift = 0;
+    let byte = 0;
+    do {
+      byte = polyline.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    lat += result & 1 ? ~(result >> 1) : result >> 1;
+
+    result = 0;
+    shift = 0;
+    do {
+      byte = polyline.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    lng += result & 1 ? ~(result >> 1) : result >> 1;
+
+    points.push({ lat: lat / 1e5, lng: lng / 1e5 });
+  }
+
+  return points;
+}
+
+function routePath(points: RoutePoint[], width: number, height: number, pad: number) {
+  if (points.length < 2) return '';
+  const minLat = Math.min(...points.map(point => point.lat));
+  const maxLat = Math.max(...points.map(point => point.lat));
+  const minLng = Math.min(...points.map(point => point.lng));
+  const maxLng = Math.max(...points.map(point => point.lng));
+  const latSpan = maxLat - minLat || 1;
+  const lngSpan = maxLng - minLng || 1;
+  const scale = Math.min((width - pad * 2) / lngSpan, (height - pad * 2) / latSpan);
+  const routeWidth = lngSpan * scale;
+  const routeHeight = latSpan * scale;
+  const offsetX = (width - routeWidth) / 2;
+  const offsetY = (height - routeHeight) / 2;
+
+  return points
+    .map((point, index) => {
+      const x = offsetX + (point.lng - minLng) * scale;
+      const y = offsetY + (maxLat - point.lat) * scale;
+      return `${index === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(' ');
+}
+
+function routePoint(points: RoutePoint[], pointIndex: number, width: number, height: number, pad: number) {
+  const point = points[pointIndex];
+  const minLat = Math.min(...points.map(item => item.lat));
+  const maxLat = Math.max(...points.map(item => item.lat));
+  const minLng = Math.min(...points.map(item => item.lng));
+  const maxLng = Math.max(...points.map(item => item.lng));
+  const latSpan = maxLat - minLat || 1;
+  const lngSpan = maxLng - minLng || 1;
+  const scale = Math.min((width - pad * 2) / lngSpan, (height - pad * 2) / latSpan);
+  const offsetX = (width - lngSpan * scale) / 2;
+  const offsetY = (height - latSpan * scale) / 2;
+  return {
+    x: offsetX + (point.lng - minLng) * scale,
+    y: offsetY + (maxLat - point.lat) * scale,
+  };
 }
 
 function shortDate(value: string) {
@@ -48,15 +152,23 @@ function isRunActivity(activity: Activity) {
   return activity.type === 'Run' || activity.type === 'TrailRun' || activity.type === 'VirtualRun';
 }
 
-function linePath(values: number[], width: number, height: number, min: number, max: number) {
+function linePath(values: Array<number | null>, width: number, height: number, min: number, max: number) {
   if (values.length === 0) return '';
   const span = max - min || 1;
+  let started = false;
   return values
     .map((value, index) => {
+      if (value === null) {
+        started = false;
+        return '';
+      }
       const x = values.length === 1 ? width / 2 : (index / (values.length - 1)) * width;
       const y = height - ((value - min) / span) * height;
-      return `${index === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+      const command = started ? 'L' : 'M';
+      started = true;
+      return `${command} ${x.toFixed(1)} ${y.toFixed(1)}`;
     })
+    .filter(Boolean)
     .join(' ');
 }
 
@@ -68,13 +180,20 @@ function point(value: number, index: number, count: number, width: number, heigh
   };
 }
 
+function lastNumberIndex(values: Array<number | null>) {
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    if (values[index] !== null) return index;
+  }
+  return -1;
+}
+
 function LineChart({ series, labels, height = 180 }: { series: Series[]; labels: string[]; height?: number }) {
   const width = 640;
   const pad = 28;
   const leftPad = 58;
   const plotWidth = width - leftPad - pad;
   const chartHeight = height - pad * 2;
-  const allValues = series.flatMap(item => item.values);
+  const allValues = series.flatMap(item => item.values).filter((value): value is number => value !== null);
   const min = allValues.length ? Math.min(...allValues, 0) : 0;
   const max = allValues.length ? Math.max(...allValues, 1) : 1;
   const mid = (min + max) / 2;
@@ -95,14 +214,17 @@ function LineChart({ series, labels, height = 180 }: { series: Series[]; labels:
               fill="none"
               stroke={item.color}
               strokeWidth="3"
+              strokeDasharray={item.dashed ? '8 7' : undefined}
               strokeLinecap="square"
               strokeLinejoin="miter"
             />
           ))}
           {series.map(item => {
             if (!item.values.length) return null;
-            const latest = item.values[item.values.length - 1];
-            const latestPoint = point(latest, item.values.length - 1, item.values.length, plotWidth, chartHeight, min, max);
+            const latestIndex = lastNumberIndex(item.values);
+            if (latestIndex === -1) return null;
+            const latest = item.values[latestIndex] as number;
+            const latestPoint = point(latest, latestIndex, item.values.length, plotWidth, chartHeight, min, max);
             return (
               <g key={`${item.key}-value`}>
                 <circle cx={latestPoint.x} cy={latestPoint.y} r="3.5" fill={item.color} />
@@ -150,6 +272,42 @@ function StatTile({ label, value, detail }: { label: string; value: string; deta
   );
 }
 
+function ActivityDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function RoutePreview({ polyline }: { polyline?: string | null }) {
+  const points = useMemo(() => (polyline ? decodePolyline(polyline) : []), [polyline]);
+  if (points.length < 2) {
+    return (
+      <div className="route-preview empty">
+        <span>No route map available</span>
+      </div>
+    );
+  }
+
+  const width = 560;
+  const height = 220;
+  const pad = 18;
+  const start = routePoint(points, 0, width, height, pad);
+  const end = routePoint(points, points.length - 1, width, height, pad);
+
+  return (
+    <div className="route-preview" aria-label="Activity route shape">
+      <svg viewBox={`0 0 ${width} ${height}`} role="img">
+        <path d={routePath(points, width, height, pad)} />
+        <circle cx={start.x} cy={start.y} r="5" className="route-start" />
+        <circle cx={end.x} cy={end.y} r="5" className="route-end" />
+      </svg>
+    </div>
+  );
+}
+
 export default function FitnessTracker() {
   const [state, setState] = useState<LoadState>('loading');
   const [error, setError] = useState('');
@@ -158,6 +316,10 @@ export default function FitnessTracker() {
   const [trend, setTrend] = useState<PaceHrTrend[]>([]);
   const [activityType, setActivityType] = useState('All');
   const [activityPage, setActivityPage] = useState(1);
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [splitsByActivity, setSplitsByActivity] = useState<Record<number, ActivitySplit[]>>({});
+  const [splitLoadingId, setSplitLoadingId] = useState<number | null>(null);
+  const [splitErrorsByActivity, setSplitErrorsByActivity] = useState<Record<number, string>>({});
 
   const accessToken = typeof localStorage === 'undefined' ? '' : localStorage.getItem('strava_access_token') || '';
   const athleteName = typeof localStorage === 'undefined' ? 'Runner' : localStorage.getItem('strava_athlete_name') || 'Runner';
@@ -193,6 +355,38 @@ export default function FitnessTracker() {
     setActivityPage(1);
   }, [activityType]);
 
+  useEffect(() => {
+    if (!selectedActivity || splitsByActivity[selectedActivity.id]) return;
+
+    let cancelled = false;
+    async function loadSplits() {
+      try {
+        setSplitErrorsByActivity(current => ({ ...current, [selectedActivity.id]: '' }));
+        setSplitLoadingId(selectedActivity.id);
+        const splits = await getActivitySplits(accessToken, selectedActivity.id);
+        if (!cancelled) {
+          setSplitsByActivity(current => ({ ...current, [selectedActivity.id]: splits }));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setSplitErrorsByActivity(current => ({
+            ...current,
+            [selectedActivity.id]: err instanceof Error ? err.message : 'Could not load splits.',
+          }));
+        }
+      } finally {
+        if (!cancelled) {
+          setSplitLoadingId(null);
+        }
+      }
+    }
+
+    loadSplits();
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, selectedActivity, splitsByActivity]);
+
   const activityTypes = useMemo(
     () => ['All', ...Array.from(new Set(activities.map(activity => activity.type))).sort()],
     [activities],
@@ -224,6 +418,10 @@ export default function FitnessTracker() {
     return hrs.length ? Math.round(sum(hrs) / hrs.length) : null;
   }, [activities]);
   const heroDistance = fourWeekDistance || Number(totalDistance.toFixed(1));
+  const projected = fitness?.projection.end;
+  const selectedSplits = selectedActivity ? splitsByActivity[selectedActivity.id] : undefined;
+  const selectedSplitError = selectedActivity ? splitErrorsByActivity[selectedActivity.id] : '';
+  const selectedSplitsLoading = selectedActivity ? splitLoadingId === selectedActivity.id : false;
 
   if (state === 'loading') {
     return (
@@ -251,7 +449,7 @@ export default function FitnessTracker() {
           <p className="eyebrow">RunSense</p>
           <h1>{athleteName.split(' ')[0]}'s training index</h1>
           <p className="hero-subhead">
-            Fitness, fatigue, pace efficiency, and activity history from Strava. Built for quick reads before planning the next block.
+            Fitness, fatigue, running efficiency, and activity history from Strava. Built for quick reads before planning the next block.
           </p>
         </div>
         <div className="top-actions">
@@ -273,7 +471,8 @@ export default function FitnessTracker() {
       <section className="stat-grid">
         <StatTile label="4 week distance" value={`${heroDistance} km`} detail={`${activities.length} loaded activities`} />
         <StatTile label="Current fitness" value={`${fitness?.current.ctl ?? '--'} CTL`} detail={`${fitness?.ctl_change ?? '--'} over 4 weeks`} />
-        <StatTile label="Fatigue balance" value={`${fitness?.current.tsb ?? '--'} TSB`} detail={fitness?.current.tsb && fitness.current.tsb < -20 ? 'high fatigue' : 'manageable load'} />
+        <StatTile label="Projected fitness" value={`${projected?.ctl ?? '--'} CTL`} detail={fitness ? `${fitness.projection.ctl_change >= 0 ? '+' : ''}${fitness.projection.ctl_change} in ${fitness.projection.days} days` : 'waiting for HR data'} />
+        <StatTile label="Projected fatigue" value={`${projected?.atl ?? '--'} ATL`} detail={projected ? `${projected.tsb} TSB projected` : 'waiting for HR data'} />
         <StatTile label="Avg run pace / HR" value={paceLabel(avgPace)} detail={avgHr ? `${avgHr} bpm average, all activities` : 'HR not available'} />
       </section>
 
@@ -289,31 +488,36 @@ export default function FitnessTracker() {
                 <span><i className="ctl" />CTL</span>
                 <span><i className="atl" />ATL</span>
                 <span><i className="tsb" />TSB</span>
+                <span><i className="projected" />Projection</span>
               </div>
             </div>
             {fitness && (
               <LineChart
-                labels={fitness.trend.map(item => shortDate(item.date))}
+                labels={[...fitness.trend, ...fitness.projection.trend].map(item => shortDate(item.date))}
                 series={[
-                  { key: 'ctl', label: 'CTL', color: '#FAFAFA', values: fitness.trend.map(item => item.ctl) },
-                  { key: 'atl', label: 'ATL', color: '#FF3D00', values: fitness.trend.map(item => item.atl) },
-                  { key: 'tsb', label: 'TSB', color: '#737373', values: fitness.trend.map(item => item.tsb) },
+                  { key: 'ctl', label: 'CTL', color: '#FAFAFA', values: [...fitness.trend.map(item => item.ctl), ...Array(fitness.projection.trend.length).fill(null)] },
+                  { key: 'atl', label: 'ATL', color: '#FF3D00', values: [...fitness.trend.map(item => item.atl), ...Array(fitness.projection.trend.length).fill(null)] },
+                  { key: 'tsb', label: 'TSB', color: '#737373', values: [...fitness.trend.map(item => item.tsb), ...Array(fitness.projection.trend.length).fill(null)] },
+                  { key: 'ctl-projected', label: 'Projected CTL', color: '#FAFAFA', dashed: true, values: [...Array(fitness.trend.length - 1).fill(null), fitness.current.ctl, ...fitness.projection.trend.map(item => item.ctl)] },
+                  { key: 'atl-projected', label: 'Projected ATL', color: '#FF3D00', dashed: true, values: [...Array(fitness.trend.length - 1).fill(null), fitness.current.atl, ...fitness.projection.trend.map(item => item.atl)] },
+                  { key: 'tsb-projected', label: 'Projected TSB', color: '#737373', dashed: true, values: [...Array(fitness.trend.length - 1).fill(null), fitness.current.tsb, ...fitness.projection.trend.map(item => item.tsb)] },
                 ]}
               />
             )}
+            {fitness && <p>{fitness.projection.assumption} Daily TSS assumption: {fitness.projection.daily_tss_assumption}.</p>}
           </article>
 
           <article className="panel">
             <div className="panel-head">
               <div>
-                <h2>Pace per heartbeat</h2>
-                <p>Weekly run pace divided by average heart rate. Lower usually means you are moving faster for each heartbeat.</p>
+                <h2>Running efficiency</h2>
+                <p>Meters covered per heartbeat each week. Higher usually means you are moving farther for the same cardiovascular cost.</p>
               </div>
             </div>
             <LineChart
               height={170}
               labels={trend.map(item => shortWeek(item.week))}
-              series={[{ key: 'efficiency', label: 'Efficiency', color: '#FF3D00', values: trend.map(item => item.efficiency) }]}
+              series={[{ key: 'efficiency', label: 'Meters per beat', color: '#FF3D00', values: trend.map(item => item.efficiency) }]}
             />
           </article>
 
@@ -370,15 +574,21 @@ export default function FitnessTracker() {
             </div>
             <div className="run-list">
               {visibleActivities.map(activity => (
-                <div className="run-row" key={activity.id}>
+                <button
+                  className="run-row"
+                  key={activity.id}
+                  type="button"
+                  onClick={() => setSelectedActivity(activity)}
+                  aria-label={`View details for ${activity.name}`}
+                >
                   <div>
                     <strong>{activity.name}</strong>
                     <span>{shortDate(activity.date)} · {activity.type} · {activity.elevation_m ?? 0} m gain</span>
                   </div>
                   <div>{activity.distance_km} km</div>
-                  <div>{paceLabel(activity.pace_min_km)}</div>
+                  <div>{activityPaceOrSpeedLabel(activity)}</div>
                   <div>{activity.avg_hr ? `${Math.round(activity.avg_hr)} bpm` : '--'}</div>
-                </div>
+                </button>
               ))}
             </div>
           </article>
@@ -392,6 +602,57 @@ export default function FitnessTracker() {
           <ChatInterface accessToken={accessToken} athleteName={athleteName} />
         </aside>
       </section>
+
+      {selectedActivity && (
+        <div className="activity-modal" role="dialog" aria-modal="true" aria-labelledby="activity-title" onClick={() => setSelectedActivity(null)}>
+          <div className="activity-card" onClick={event => event.stopPropagation()}>
+            <button type="button" className="activity-close" onClick={() => setSelectedActivity(null)} aria-label="Close activity details">×</button>
+            <p className="section-kicker">{selectedActivity.type}</p>
+            <h2 id="activity-title">{selectedActivity.name}</h2>
+            <p className="activity-date">{shortDate(selectedActivity.date)} · {selectedActivity.date}</p>
+            <RoutePreview polyline={selectedActivity.summary_polyline} />
+            <div className="activity-detail-grid">
+              <ActivityDetail label="Distance" value={`${selectedActivity.distance_km} km`} />
+              <ActivityDetail label="Duration" value={`${selectedActivity.duration_min} min`} />
+              <ActivityDetail label={activityPaceOrSpeedTitle(selectedActivity)} value={activityPaceOrSpeedLabel(selectedActivity)} />
+              <ActivityDetail label="Avg HR" value={selectedActivity.avg_hr ? `${Math.round(selectedActivity.avg_hr)} bpm` : '--'} />
+              <ActivityDetail label="Max HR" value={selectedActivity.max_hr ? `${Math.round(selectedActivity.max_hr)} bpm` : '--'} />
+              <ActivityDetail label="Elevation" value={`${selectedActivity.elevation_m ?? 0} m`} />
+            </div>
+            <div className="splits-block">
+              <div className="splits-head">
+                <h3>Splits</h3>
+                <span>{selectedSplits?.length ? `${selectedSplits.length} km splits` : 'Metric'}</span>
+              </div>
+              {selectedSplitsLoading && <p className="splits-state">Loading splits...</p>}
+              {!selectedSplitsLoading && selectedSplitError && <p className="splits-state">{selectedSplitError}</p>}
+              {!selectedSplitsLoading && !selectedSplitError && selectedSplits && selectedSplits.length === 0 && (
+                <p className="splits-state">No splits available for this activity.</p>
+              )}
+              {!selectedSplitsLoading && !selectedSplitError && selectedSplits && selectedSplits.length > 0 && (
+                <div className="splits-table" role="table" aria-label="Activity kilometer splits">
+                  <div className="splits-row splits-header" role="row">
+                    <span>KM</span>
+                    <span>Pace</span>
+                    <span>Time</span>
+                    <span>HR</span>
+                    <span>Elev</span>
+                  </div>
+                  {selectedSplits.map(split => (
+                    <div className="splits-row" role="row" key={`${selectedActivity.id}-${split.split}`}>
+                      <span>{split.split}</span>
+                      <span>{paceLabel(split.pace_min_km)}</span>
+                      <span>{durationLabel(split.moving_time_sec)}</span>
+                      <span>{split.avg_hr ? `${Math.round(split.avg_hr)}` : '--'}</span>
+                      <span>{split.elevation_difference_m === null ? '--' : `${Math.round(split.elevation_difference_m)} m`}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
